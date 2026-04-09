@@ -1,9 +1,10 @@
 import { useApi } from '../hooks/useApi'
 import Panel from './Panel'
 import { timeAgo } from '../lib/utils'
+import { profileName, withProfile } from '../lib/profile'
 
-export default function CronPanel() {
-  const { data, isLoading } = useApi('/cron', 30000)
+export default function CronPanel({ selectedProfile }: { selectedProfile: string }) {
+  const { data, isLoading } = useApi(withProfile('/cron', selectedProfile), 30000)
 
   if (isLoading || !data) {
     return <Panel title="Cron Jobs" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
@@ -11,11 +12,11 @@ export default function CronPanel() {
 
   const jobs = data.jobs || data || []
   if (!Array.isArray(jobs) || jobs.length === 0) {
-    return <Panel title="Cron Jobs" className="col-span-full"><div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No cron jobs configured</div></Panel>
+    return <Panel title={`Cron Jobs · ${profileName(data?.profile || selectedProfile)}`} className="col-span-full"><div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No cron jobs configured</div></Panel>
   }
 
   return (
-    <Panel title="Cron Jobs" className="col-span-full">
+    <Panel title={`Cron Jobs · ${profileName(data?.profile || selectedProfile)}`} className="col-span-full">
       <div className="space-y-3">
         {jobs.map((job: any) => {
           const isActive = job.enabled && !job.paused_reason

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import Panel from './Panel'
 import { timeAgo, formatSize } from '../lib/utils'
+import { profileName, withProfile } from '../lib/profile'
 
 function SkillItem({ skill, variant }: { skill: any; variant: 'category' | 'recent' }) {
   const descLimit = variant === 'category' ? 120 : 100
@@ -36,8 +37,8 @@ function SkillItem({ skill, variant }: { skill: any; variant: 'category' | 'rece
   )
 }
 
-export default function SkillsPanel() {
-  const { data, isLoading } = useApi('/skills', 60000)
+export default function SkillsPanel({ selectedProfile }: { selectedProfile: string }) {
+  const { data, isLoading } = useApi(withProfile('/skills', selectedProfile), 60000)
   const [selectedCat, setSelectedCat] = useState<string | null>(null)
 
   if (isLoading || !data) {
@@ -58,7 +59,7 @@ export default function SkillsPanel() {
   return (
     <>
       {/* Category overview */}
-      <Panel title="Skill Library" className="col-span-1">
+      <Panel title={`Skill Library · ${profileName(data?.profile || selectedProfile)}`} className="col-span-1">
         <div className="flex gap-2 mb-3">
           <span className="text-[13px] px-2 py-0.5" style={{ background: 'var(--hud-bg-panel)', color: 'var(--hud-primary)' }}>
             {data.total} total

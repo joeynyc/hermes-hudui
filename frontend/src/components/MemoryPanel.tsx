@@ -1,5 +1,6 @@
 import { useApi } from '../hooks/useApi'
 import Panel, { CapacityBar } from './Panel'
+import { profileName, withProfile } from '../lib/profile'
 
 function MemoryEntries({ entries }: { entries: any[] }) {
   if (!entries?.length) return <div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No entries</div>
@@ -21,8 +22,8 @@ function MemoryEntries({ entries }: { entries: any[] }) {
   )
 }
 
-export default function MemoryPanel() {
-  const { data, isLoading } = useApi('/memory', 30000)
+export default function MemoryPanel({ selectedProfile }: { selectedProfile: string }) {
+  const { data, isLoading } = useApi(withProfile('/memory', selectedProfile), 30000)
 
   if (isLoading || !data) {
     return <Panel title="Memory" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
@@ -32,7 +33,7 @@ export default function MemoryPanel() {
 
   return (
     <>
-      <Panel title="Agent Memory" className="col-span-1">
+      <Panel title={`Agent Memory · ${profileName(data?.profile || selectedProfile)}`} className="col-span-1">
         <CapacityBar value={memory?.total_chars || 0} max={memory?.max_chars || 2200} label="CAPACITY" />
         <div className="text-[13px] my-2" style={{ color: 'var(--hud-text-dim)' }}>
           {memory?.entry_count || 0} entries · {Object.entries(memory?.count_by_category || {}).map(([k,v]) => `${k}(${v})`).join(' ')}
@@ -40,7 +41,7 @@ export default function MemoryPanel() {
         <MemoryEntries entries={memory?.entries || []} />
       </Panel>
 
-      <Panel title="User Profile" className="col-span-1">
+      <Panel title={`User Profile · ${profileName(data?.profile || selectedProfile)}`} className="col-span-1">
         <CapacityBar value={user?.total_chars || 0} max={user?.max_chars || 1375} label="CAPACITY" />
         <div className="text-[13px] my-2" style={{ color: 'var(--hud-text-dim)' }}>
           {user?.entry_count || 0} entries
