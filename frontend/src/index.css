@@ -2,7 +2,7 @@
 
 /* ═══════════════════════════════════════════════════════════
    HERMES HUD — Theme System
-   4 themes as CSS custom properties. One-line switch.
+   5 themes as CSS custom properties. One-line switch.
    ═══════════════════════════════════════════════════════════ */
 
 :root {
@@ -99,6 +99,28 @@
   --hud-error: #ff5555;
   --hud-gradient-start: #875fff;
   --hud-gradient-end: #ff5fff;
+}
+
+/* ── Hermes White (nousresearch.com light — inverted tokens) ── */
+[data-theme="hermes-white"] {
+  --hud-bg-deep: #ffffff;
+  --hud-bg-surface: #f7f7f7;
+  --hud-bg-panel: #eaeaea;
+  --hud-bg-hover: #e0e0e0;
+  --hud-primary: #ffac02;
+  --hud-primary-dim: #e69a00;
+  --hud-primary-glow: rgba(255, 172, 2, 0.45);
+  --hud-secondary: #ffc44d;
+  --hud-accent: #170d02;
+  --hud-text: #170d02;
+  --hud-text-dim: #6b5b4d;
+  --hud-border: rgba(255, 172, 2, 0.35);
+  --hud-border-bright: rgba(255, 172, 2, 0.55);
+  --hud-success: #0d8068;
+  --hud-warning: #cc8800;
+  --hud-error: #c41e3a;
+  --hud-gradient-start: #e69a00;
+  --hud-gradient-end: #ffac02;
 }
 
 /* ═══════════════════════════════════════════════════════════
