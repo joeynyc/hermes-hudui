@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { ThemeProvider } from './hooks/useTheme'
 import { refreshAll } from './hooks/useApi'
+import { getSelectedProfile, setSelectedProfile as saveSelectedProfile } from './lib/profile'
 import TopBar, { type TabId, TABS } from './components/TopBar'
 import CommandPalette from './components/CommandPalette'
 import BootScreen from './components/BootScreen'
@@ -47,9 +48,18 @@ const GRID_CLASS: Record<TabId, string> = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
+  const [selectedProfile, setSelectedProfile] = useState(getSelectedProfile())
   const [booted, setBooted] = useState(() => {
     return sessionStorage.getItem('hud-booted') === 'true'
   })
+
+  // Handle profile change
+  const handleProfileChange = useCallback((profile: string) => {
+    saveSelectedProfile(profile)
+    setSelectedProfile(profile)
+    // Small delay to ensure localStorage is committed before refreshing SWR keys
+    setTimeout(refreshAll, 10)
+  }, [])
 
   const handleBootComplete = useCallback(() => {
     setBooted(true)
@@ -79,7 +89,13 @@ export default function App() {
         onSelect={handleCommandSelect}
       />
 
-      <TopBar activeTab={activeTab} onTabChange={setActiveTab} onRefresh={refreshAll} />
+      <TopBar 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+        onRefresh={refreshAll}
+        selectedProfile={selectedProfile}
+        onProfileChange={handleProfileChange}
+      />
 
       <div className="overflow-y-auto" style={{ flex: '1 1 0', height: 0, minHeight: 0 }}>
         <div className={`grid gap-2 p-2 ${GRID_CLASS[activeTab]}`}>

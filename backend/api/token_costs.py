@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
-from backend.collectors.utils import default_hermes_dir
+from .profile_scope import resolve_profile_scope
 
 router = APIRouter()
 
@@ -118,9 +118,9 @@ def _calc_cost(tokens: dict, pricing: dict) -> float:
 
 
 @router.get("/token-costs")
-async def get_token_costs():
+async def get_token_costs(profile: str | None = None):
     """Token usage and estimated costs, broken down by model."""
-    hermes_dir = default_hermes_dir()
+    profile_name, hermes_dir = resolve_profile_scope(profile)
     db_path = str(Path(hermes_dir) / "state.db")
 
     if not Path(db_path).exists():
@@ -271,4 +271,5 @@ async def get_token_costs():
             for day in sorted_days
         ],
         "pricing_table": {k: {kk: vv for kk, vv in v.items()} for k, v in MODEL_PRICING.items()},
+        "profile": profile_name,
     }

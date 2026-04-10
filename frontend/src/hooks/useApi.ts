@@ -1,4 +1,5 @@
 import useSWR, { mutate } from 'swr'
+import { getSelectedProfile } from '../lib/profile'
 
 const fetcher = async (url: string) => {
   const res = await fetch(url)
@@ -10,7 +11,11 @@ const fetcher = async (url: string) => {
 }
 
 export function useApi<T = any>(path: string | null, refreshInterval = 30000) {
-  const key = path ? `/api${path}` : null
+  const profile = getSelectedProfile()
+  const key = path 
+    ? `/api${path}${path.includes('?') ? '&' : '?'}profile=${profile}` 
+    : null
+    
   return useSWR<T>(key, fetcher, {
     refreshInterval,
     revalidateOnFocus: false,

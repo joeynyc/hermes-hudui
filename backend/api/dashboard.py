@@ -8,19 +8,21 @@ from backend.collectors.projects import collect_projects
 from backend.collectors.health import collect_health
 from backend.collectors.corrections import collect_corrections
 from backend.collectors.snapshot import load_snapshots
+from .profile_scope import resolve_profile_scope
 from .serialize import to_dict
 
 router = APIRouter()
 
 
 @router.get("/dashboard")
-async def get_dashboard():
+async def get_dashboard(profile: str | None = None):
     """Everything the overview narrative needs — trimmed to essentials."""
+    profile_name, hermes_dir = resolve_profile_scope(profile)
 
-    state = collect_all()
-    health = collect_health()
-    corrections = collect_corrections()
-    snapshots = load_snapshots()
+    state = collect_all(hermes_dir)
+    health = collect_health(hermes_dir)
+    corrections = collect_corrections(hermes_dir)
+    snapshots = load_snapshots(hermes_dir)
 
     # Trim state: only keep what the narrative sections need
     lean_state = {
@@ -62,10 +64,10 @@ async def get_dashboard():
     }
 
     # Cron: just jobs list
-    cron = to_dict(collect_cron())
+    cron = to_dict(collect_cron(hermes_dir))
 
     # Projects: only active + dirty for the narrative
-    projects_data = collect_projects()
+    projects_data = collect_projects() # projects_dir not shared here usually
     active_projects = [
         to_dict(p) for p in projects_data.projects
         if p.is_git and (p.activity_level == "active" or p.dirty_files > 0)
@@ -86,4 +88,5 @@ async def get_dashboard():
         "cron": cron,
         "corrections": to_dict(corrections),
         "snapshots": snapshots,
+        "profile": profile_name,
     }
