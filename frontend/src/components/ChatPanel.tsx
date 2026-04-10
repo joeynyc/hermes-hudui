@@ -93,17 +93,23 @@ export default function ChatPanel({ profile }: ChatPanelProps) {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let assistantContent = ''
+      let buffer = ''
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        const chunk = decoder.decode(value, { stream: true })
+        buffer += chunk
+        
+        const lines = buffer.split('\n')
+        // Keep the last partial line in the buffer
+        buffer = lines.pop() || ''
         
         for (const line of lines) {
-          if (line.trim().startsWith('data: ')) {
-            const dataStr = line.trim().slice(6)
+          const trimmedLine = line.trim()
+          if (trimmedLine.startsWith('data: ')) {
+            const dataStr = trimmedLine.slice(6)
             if (dataStr === '[DONE]') break
             
             try {
@@ -121,7 +127,7 @@ export default function ChatPanel({ profile }: ChatPanelProps) {
                 })
               }
             } catch (e) {
-              // Ignore partial JSON chunks
+              // Ignore partial JSON
             }
           }
         }

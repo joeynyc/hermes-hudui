@@ -8,12 +8,14 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import StreamingResponse
 from typing import Optional, AsyncGenerator
 
+import logging
 from .profile_scope import resolve_profile_scope
 
 router = APIRouter()
+logger = logging.getLogger("hermes.chat")
 
-# Hermes API Server (default)
-HERMES_SERVER_URL = "http://localhost:8642/v1/chat/completions"
+# Hermes API Server (default) - Use 127.0.0.1 to avoid Windows IPv6 resolution issues
+HERMES_SERVER_URL = "http://127.0.0.1:8642/v1/chat/completions"
 
 def get_db_path(profile: Optional[str] = None) -> Path:
     _, hermes_dir = resolve_profile_scope(profile)
@@ -109,6 +111,8 @@ async def chat_completions(request: Request, profile: str | None = None):
     body = await request.json()
     api_key = get_api_key(profile)
     
+    logger.info(f"Chat request for profile: {profile}")
+    
     # We strip profile from body before forwarding if it was sent there
     if "profile" in body:
         del body["profile"]
@@ -122,11 +126,14 @@ async def chat_completions(request: Request, profile: str | None = None):
     async def stream_response() -> AsyncGenerator[str, None]:
         async with httpx.AsyncClient(timeout=60.0) as client:
             try:
+                logger.info(f"Connecting to Hermes API at {HERMES_SERVER_URL}")
                 async with client.stream("POST", HERMES_SERVER_URL, json=body, headers=headers) as response:
+                    logger.info(f"Hermes API Response Status: {response.status_code}")
                     async for line in response.aiter_lines():
                         if line:
                             yield f"{line}\n\n"
             except Exception as e:
+                logger.error(f"Stream error: {str(e)}")
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
                 yield "data: [DONE]\n\n"
 
