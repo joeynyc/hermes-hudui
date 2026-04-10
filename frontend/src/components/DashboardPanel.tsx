@@ -1,5 +1,6 @@
 import { useApi } from '../hooks/useApi'
 import Panel, { CapacityBar, Sparkline } from './Panel'
+import { profileName, withProfile } from '../lib/profile'
 
 function IdentityBlock({ state, health }: { state: any; health: any }) {
   const { config, sessions } = state
@@ -345,12 +346,12 @@ function ClosingStatements({ sessions, corrections }: { sessions: any; correctio
   )
 }
 
-export default function DashboardPanel() {
-  const { data, isLoading } = useApi('/dashboard', 30000)
+export default function DashboardPanel({ selectedProfile }: { selectedProfile: string }) {
+  const { data, isLoading } = useApi(withProfile('/dashboard', selectedProfile), 30000)
 
   if (isLoading || !data) {
     return (
-      <Panel title="Dashboard" className="col-span-full">
+      <Panel title={`Dashboard · ${profileName(selectedProfile)}`} className="col-span-full">
         <div className="glow text-[13px] animate-pulse">Collecting state...</div>
       </Panel>
     )
@@ -362,7 +363,7 @@ export default function DashboardPanel() {
   return (
     <>
       {/* Row 1: identity + what I know + what I remember */}
-      <Panel title="Overview">
+      <Panel title={`Overview · ${profileName(data?.profile || selectedProfile)}`}>
         <IdentityBlock state={state} health={health} />
         <WhatIKnow sessions={sessions} skills={skills} />
       </Panel>

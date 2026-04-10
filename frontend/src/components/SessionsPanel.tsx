@@ -1,8 +1,9 @@
 import { useApi } from '../hooks/useApi'
 import Panel, { Sparkline } from './Panel'
+import { profileName, withProfile } from '../lib/profile'
 
-export default function SessionsPanel() {
-  const { data, isLoading } = useApi('/sessions', 30000)
+export default function SessionsPanel({ selectedProfile }: { selectedProfile: string }) {
+  const { data, isLoading } = useApi(withProfile('/sessions', selectedProfile), 30000)
 
   if (isLoading || !data) {
     return <Panel title="Sessions" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
@@ -16,7 +17,7 @@ export default function SessionsPanel() {
 
   return (
     <>
-      <Panel title="Session Activity" className="col-span-2">
+      <Panel title={`Session Activity · ${profileName(data?.profile || selectedProfile)}`} className="col-span-2">
         <div className="flex gap-6 mb-3 text-[13px]">
           <div>
             <span className="stat-value text-base">{data.total_sessions || 0}</span>
@@ -47,7 +48,7 @@ export default function SessionsPanel() {
         </div>
       </Panel>
 
-      <Panel title="Recent Sessions">
+      <Panel title={`Recent Sessions · ${profileName(data?.profile || selectedProfile)}`}>
         <div className="space-y-0.5 text-[13px]">
           {sessions.slice(0, 15).map((s: any) => (
             <div key={s.id} className="flex items-center gap-2 py-0.5" style={{ borderBottom: '1px solid var(--hud-border)' }}>

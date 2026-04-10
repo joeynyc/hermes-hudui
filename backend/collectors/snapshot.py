@@ -15,17 +15,18 @@ from .collect import collect_all
 from .utils import default_hermes_dir
 from .models import HUDSnapshot
 
-SNAPSHOT_DIR = os.path.join(default_hermes_dir(), ".hud")
+def _snapshot_dir(hermes_dir: str | None = None) -> str:
+    return os.path.join(default_hermes_dir(hermes_dir), ".hud")
 
 
-def _snapshot_file() -> str:
+def _snapshot_file(hermes_dir: str | None = None) -> str:
     """Return the current snapshot file path for the active snapshot directory."""
-    return os.path.join(SNAPSHOT_DIR, "snapshots.jsonl")
+    return os.path.join(_snapshot_dir(hermes_dir), "snapshots.jsonl")
 
 
-def take_snapshot() -> HUDSnapshot:
+def take_snapshot(hermes_dir: str | None = None) -> HUDSnapshot:
     """Collect current state and create a snapshot."""
-    state = collect_all()
+    state = collect_all(hermes_dir)
 
     return HUDSnapshot(
         timestamp=state.collected_at,
@@ -43,10 +44,10 @@ def take_snapshot() -> HUDSnapshot:
     )
 
 
-def save_snapshot(snap: HUDSnapshot) -> str:
+def save_snapshot(snap: HUDSnapshot, hermes_dir: str | None = None) -> str:
     """Append snapshot to JSONL file."""
-    os.makedirs(SNAPSHOT_DIR, exist_ok=True)
-    snapshot_file = _snapshot_file()
+    os.makedirs(_snapshot_dir(hermes_dir), exist_ok=True)
+    snapshot_file = _snapshot_file(hermes_dir)
 
     record = {
         "timestamp": snap.timestamp.isoformat(),
@@ -69,9 +70,9 @@ def save_snapshot(snap: HUDSnapshot) -> str:
     return snapshot_file
 
 
-def load_snapshots() -> list[dict]:
+def load_snapshots(hermes_dir: str | None = None) -> list[dict]:
     """Load all historical snapshots."""
-    snapshot_file = _snapshot_file()
+    snapshot_file = _snapshot_file(hermes_dir)
     if not os.path.exists(snapshot_file):
         return []
 

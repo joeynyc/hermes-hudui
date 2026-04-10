@@ -1,6 +1,7 @@
 import { useApi } from '../hooks/useApi'
 import Panel, { Sparkline } from './Panel'
 import { formatTokens } from '../lib/utils'
+import { profileName, withProfile } from '../lib/profile'
 
 function StatCard({ value, label }: { value: string | number; label: string }) {
   return (
@@ -59,8 +60,8 @@ function ModelCard({ m }: { m: any }) {
   )
 }
 
-export default function TokenCostsPanel() {
-  const { data, isLoading } = useApi('/token-costs', 60000)
+export default function TokenCostsPanel({ selectedProfile }: { selectedProfile: string }) {
+  const { data, isLoading } = useApi(withProfile('/token-costs', selectedProfile), 60000)
 
   if (isLoading || !data) {
     return <Panel title="Token Costs" className="col-span-full"><div className="glow text-[13px] animate-pulse">Calculating costs...</div></Panel>
@@ -84,7 +85,7 @@ export default function TokenCostsPanel() {
   return (
     <>
       {/* Today */}
-      <Panel title={`Today — $${today.estimated_cost_usd.toFixed(2)}`}>
+      <Panel title={`Today · ${profileName(data?.profile || selectedProfile)} — $${today.estimated_cost_usd.toFixed(2)}`}>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <StatCard value={today.session_count} label="sessions" />
           <StatCard value={today.message_count} label="messages" />
@@ -104,7 +105,7 @@ export default function TokenCostsPanel() {
       </Panel>
 
       {/* All time */}
-      <Panel title={`All Time — $${allTime.estimated_cost_usd.toFixed(2)}`}>
+      <Panel title={`All Time · ${profileName(data?.profile || selectedProfile)} — $${allTime.estimated_cost_usd.toFixed(2)}`}>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <StatCard value={allTime.session_count} label="sessions" />
           <StatCard value={(allTime.message_count || 0).toLocaleString()} label="messages" />
@@ -130,7 +131,7 @@ export default function TokenCostsPanel() {
 
       {/* Per-model breakdown */}
       {byModel.length > 0 && (
-        <Panel title={`By Model — ${byModel.length} models`} className="col-span-full">
+        <Panel title={`By Model · ${profileName(data?.profile || selectedProfile)} — ${byModel.length} models`} className="col-span-full">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
             {byModel.map((m: any) => (
               <ModelCard key={m.model} m={m} />

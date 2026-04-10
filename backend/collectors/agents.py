@@ -20,6 +20,8 @@ from .utils import parse_timestamp, default_hermes_dir, safe_get
 class AgentProcess:
     name: str           # hermes, claude, codex, opencode, llama-server
     binary: str         # actual binary name for pgrep
+    profile: Optional[str] = None
+    scope: str = "profile"   # "profile" | "global"
     running: bool = False
     pid: Optional[int] = None
     uptime: Optional[str] = None      # human-readable
@@ -117,6 +119,12 @@ AGENT_PROCESSES = [
     ("windsurf", "windsurf"),
 ]
 
+# These are Hermes-family binaries — they have profiles (default if no --profile flag)
+_HERMES_BINARIES = {"hermes"}
+
+# These are global tools — they don't belong to any Hermes profile
+_GLOBAL_BINARIES = {"claude", "codex", "opencode", "llama-server", "aider", "cursor", "windsurf"}
+
 # Shells — excluded from "interesting" unmatched pane display
 _SHELL_COMMANDS = {"bash", "zsh", "sh", "fish", "dash", "tcsh", "csh"}
 
@@ -126,6 +134,18 @@ _ALERT_PATTERNS = [
     ("question", re.compile(r"(?i)(enter|input|type|answer|respond).*:")),
     ("error",    re.compile(r"(?i)(error|exception|traceback|failed|fatal)")),
 ]
+
+
+def _extract_profile_from_cmdline(cmdline: str | None) -> Optional[str]:
+    """Extract Hermes profile name from command line when present."""
+    if not cmdline:
+        return None
+
+    match = re.search(r"(?:--profile|-p)\s+([a-z0-9_-]+)", cmdline)
+    if match:
+        return match.group(1)
+
+    return None
 
 
 def _shorten_home_path(path: str) -> str:
@@ -180,6 +200,7 @@ def _get_process_info_linux(name: str, binary: str) -> list[AgentProcess]:
                 if cmdline_path.exists():
                     cmdline = cmdline_path.read_bytes().decode("utf-8", errors="replace")
                     cmdline = cmdline.replace("\x00", " ").strip()
+                    agent.profile = _extract_profile_from_cmdline(cmdline)
                     if len(cmdline) > 80:
                         cmdline = cmdline[:77] + "..."
                     agent.cmdline = cmdline
@@ -264,7 +285,9 @@ def _get_process_info_macos(name: str, binary: str) -> list[AgentProcess]:
                     if len(parts) >= 3 and parts[2] != "??":
                         agent.tty = parts[2]
                     if len(parts) >= 4:
-                        cmd = parts[3].strip()
+                        full_cmd = parts[3].strip()
+                        agent.profile = _extract_profile_from_cmdline(full_cmd)
+                        cmd = full_cmd
                         if len(cmd) > 80:
                             cmd = cmd[:77] + "..."
                         agent.cmdline = cmd
@@ -533,7 +556,7 @@ def _get_recent_sessions(hermes_dir: str, limit: int = 10) -> list[RecentSession
     return sessions
 
 
-def collect_agents(hermes_dir: str | None = None) -> AgentsState:
+def collect_agents(hermes_dir: str | None = None, profile: str | None = None) -> AgentsState:
     """Collect all agent data."""
     if hermes_dir is None:
         hermes_dir = default_hermes_dir(hermes_dir)
@@ -555,6 +578,15 @@ def collect_agents(hermes_dir: str | None = None) -> AgentsState:
                 if agent.pid == os.getppid():
                     continue
 
+            # Classify scope and resolve default profile
+            if binary in _GLOBAL_BINARIES:
+                agent.scope = "global"
+                agent.profile = None
+            else:
+                agent.scope = "profile"
+                if agent.profile is None:
+                    agent.profile = "default"
+
             processes.append(agent)
 
     # tmux discovery
@@ -572,6 +604,18 @@ def collect_agents(hermes_dir: str | None = None) -> AgentsState:
 
     # Get recent sessions
     recent_sessions = _get_recent_sessions(hermes_dir)
+
+    if profile:
+        # Global agents always show; profile agents are filtered to match
+        processes = [
+            proc for proc in processes
+            if proc.scope == "global" or proc.profile == profile
+        ]
+        allowed_pids = {proc.pid for proc in processes if proc.pid is not None}
+        alerts = [
+            alert for alert in alerts
+            if any(pane.pane_id == alert.pane_id and pane.agent_pid in allowed_pids for pane in panes)
+        ]
 
     return AgentsState(
         processes=processes,

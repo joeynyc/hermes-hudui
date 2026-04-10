@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
-from backend.collectors.utils import default_hermes_dir
+from .profile_scope import resolve_profile_scope
 
 router = APIRouter()
 
@@ -118,13 +118,13 @@ def _calc_cost(tokens: dict, pricing: dict) -> float:
 
 
 @router.get("/token-costs")
-async def get_token_costs():
+async def get_token_costs(profile: str | None = None):
     """Token usage and estimated costs, broken down by model."""
-    hermes_dir = default_hermes_dir()
+    profile_name, hermes_dir = resolve_profile_scope(profile)
     db_path = str(Path(hermes_dir) / "state.db")
 
     if not Path(db_path).exists():
-        return {"error": "state.db not found"}
+        return {"profile": profile_name, "error": "state.db not found"}
 
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -242,9 +242,16 @@ async def get_token_costs():
     sorted_days = sorted(daily.keys())
 
     return {
+        "profile": profile_name,
         "today": {
             "date": today,
-            **today_data,
+            "session_count": today_data["session_count"],
+            "message_count": today_data["message_count"],
+            "input_tokens": today_data["input_tokens"],
+            "output_tokens": today_data["output_tokens"],
+            "cache_read_tokens": today_data["cache_read_tokens"],
+            "cache_write_tokens": today_data["cache_write_tokens"],
+            "reasoning_tokens": today_data["reasoning_tokens"],
             "total_tokens": today_data["input_tokens"] + today_data["output_tokens"],
             "estimated_cost_usd": today_data["cost"],
         },
