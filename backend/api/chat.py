@@ -23,20 +23,33 @@ def get_db_path(profile: Optional[str] = None) -> Path:
     return Path(hermes_dir) / "state.db"
 
 def get_api_key(profile: Optional[str] = None) -> Optional[str]:
-    # Try environment first
-    key = os.environ.get("OPENAI_API_KEY")
+    # Prioritize API_SERVER_KEY as requested
+    key = os.environ.get("API_SERVER_KEY")
     if key:
         return key
     
-    # Try .env in profile directory or home
+    # Try .env in profile directory
     _, hermes_dir = resolve_profile_scope(profile)
     env_path = Path(hermes_dir) / ".env"
-    if env_path.exists():
-        for line in env_path.read_text().splitlines():
-            if line.startswith("OPENAI_API_KEY="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
     
-    return None
+    if env_path.exists():
+        try:
+            content = env_path.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"): continue
+                
+                # Check for API_SERVER_KEY first
+                if line.startswith("API_SERVER_KEY="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+                
+                # Fallback to OPENAI_API_KEY if needed
+                if line.startswith("OPENAI_API_KEY="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+        except Exception as e:
+            logger.error(f"Error reading .env at {env_path}: {e}")
+    
+    return os.environ.get("OPENAI_API_KEY")
 
 # --- Synchronous Helpers for Threadpool ---
 
