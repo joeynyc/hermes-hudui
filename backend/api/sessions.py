@@ -1,5 +1,5 @@
-"""Sessions endpoints."""
-
+from fastapi import APIRouter
+from backend.collectors.sessions import collect_sessions
 from .profile_scope import collect_with_profile
 
 router = APIRouter()

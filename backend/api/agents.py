@@ -1,5 +1,5 @@
-"""Agents endpoint."""
-
+from fastapi import APIRouter
+from backend.collectors.agents import collect_agents
 from .profile_scope import collect_with_profile
 
 router = APIRouter()
