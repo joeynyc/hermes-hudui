@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.error import URLError
 
+from ..cache import get_cached_or_compute
 from .memory import MEMORY_MAX_CHARS, USER_MAX_CHARS
 from .utils import default_hermes_dir, safe_get
 from .models import ProfileInfo, ProfilesState
@@ -91,8 +92,12 @@ def _read_soul_summary(profile_dir: Path) -> str:
 def _read_memory_stats(profile_dir: Path) -> dict:
     """Read memory entry counts and char sizes."""
     stats = {
-        "memory_entries": 0, "memory_chars": 0, "memory_max_chars": MEMORY_MAX_CHARS,
-        "user_entries": 0, "user_chars": 0, "user_max_chars": USER_MAX_CHARS,
+        "memory_entries": 0,
+        "memory_chars": 0,
+        "memory_max_chars": MEMORY_MAX_CHARS,
+        "user_entries": 0,
+        "user_chars": 0,
+        "user_max_chars": USER_MAX_CHARS,
     }
     for fname, prefix in [("MEMORY.md", "memory"), ("USER.md", "user")]:
         fpath = profile_dir / "memories" / fname
@@ -111,8 +116,11 @@ def _read_memory_stats(profile_dir: Path) -> dict:
 def _read_session_stats(profile_dir: Path) -> dict:
     """Read session statistics from state.db."""
     stats = {
-        "session_count": 0, "message_count": 0, "tool_call_count": 0,
-        "total_in" + "put_tok" + "ens": 0, "total_out" + "put_tok" + "ens": 0,
+        "session_count": 0,
+        "message_count": 0,
+        "tool_call_count": 0,
+        "total_in" + "put_tok" + "ens": 0,
+        "total_out" + "put_tok" + "ens": 0,
         "last_active": None,
     }
     db_path = profile_dir / "state.db"
@@ -188,7 +196,9 @@ def _read_api_keys(profile_dir: Path) -> list[str]:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key_name = line.split("=", 1)[0].strip()
-                if key_name and ("KEY" in key_name or "TOKEN" in key_name or "SECRET" in key_name):
+                if key_name and (
+                    "KEY" in key_name or "TOKEN" in key_name or "SECRET" in key_name
+                ):
                     keys.append(key_name)
     except Exception:
         pass
@@ -197,11 +207,17 @@ def _read_api_keys(profile_dir: Path) -> list[str]:
 
 def _check_gateway_status(profile_name: str) -> str:
     """Check systemd gateway service status."""
-    service = f"hermes-gateway-{profile_name}" if profile_name != "default" else "hermes-gateway"
+    service = (
+        f"hermes-gateway-{profile_name}"
+        if profile_name != "default"
+        else "hermes-gateway"
+    )
     try:
         result = subprocess.run(
             ["systemctl", "--user", "is-active", service],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         status = result.stdout.strip()
         if status == "active":
@@ -226,7 +242,9 @@ def _check_server_status(base_url: str) -> str:
         return "stopped"
 
 
-def _collect_single_profile(profile_dir: Path, name: str, is_default: bool = False) -> ProfileInfo:
+def _collect_single_profile(
+    profile_dir: Path, name: str, is_default: bool = False
+) -> ProfileInfo:
     """Collect all data for a single profile."""
     config = _read_config(profile_dir)
 
@@ -258,7 +276,11 @@ def _collect_single_profile(profile_dir: Path, name: str, is_default: bool = Fal
     comp_enabled = False
     comp_model = ""
     if isinstance(comp_cfg, dict):
-        comp_enabled = comp_cfg.get("enabled", "false").lower() in ("true", "1", "yes") if isinstance(comp_cfg.get("enabled"), str) else bool(comp_cfg.get("enabled", False))
+        comp_enabled = (
+            comp_cfg.get("enabled", "false").lower() in ("true", "1", "yes")
+            if isinstance(comp_cfg.get("enabled"), str)
+            else bool(comp_cfg.get("enabled", False))
+        )
         comp_model = comp_cfg.get("summary_model", "")
 
     # Memory limits from config
@@ -288,7 +310,11 @@ def _collect_single_profile(profile_dir: Path, name: str, is_default: bool = Fal
         port = urlparse(base_url).port if base_url else None
     except Exception:
         port = None
-    has_alias = any(Path(d, name).exists() for d in _ALIAS_BIN_DIRS) if name != "default" else False
+    has_alias = (
+        any(Path(d, name).exists() for d in _ALIAS_BIN_DIRS)
+        if name != "default"
+        else False
+    )
 
     # Build token field names with concatenation to avoid redaction
     in_key = "total_in" + "put_tok" + "ens"
@@ -328,12 +354,8 @@ def _collect_single_profile(profile_dir: Path, name: str, is_default: bool = Fal
     )
 
 
-def collect_profiles(hermes_dir: str | None = None) -> ProfilesState:
-    """Collect data for all Hermes profiles."""
-    if hermes_dir is None:
-        hermes_dir = default_hermes_dir()
-
-    hermes_path = Path(hermes_dir)
+def _do_collect_profiles(hermes_path: Path) -> ProfilesState:
+    """Actually collect all profile data (internal, uncached)."""
     profiles = []
 
     # Default profile is the hermes_dir itself
@@ -349,3 +371,24 @@ def collect_profiles(hermes_dir: str | None = None) -> ProfilesState:
                 profiles.append(profile)
 
     return ProfilesState(profiles=profiles)
+
+
+def collect_profiles(hermes_dir: str | None = None) -> ProfilesState:
+    """Collect data for all Hermes profiles (cached)."""
+    if hermes_dir is None:
+        hermes_dir = default_hermes_dir()
+
+    hermes_path = Path(hermes_dir)
+
+    # Monitor both main dir and profiles subdir
+    paths_to_monitor = [hermes_path]
+    profiles_dir = hermes_path / "profiles"
+    if profiles_dir.exists():
+        paths_to_monitor.append(profiles_dir)
+
+    return get_cached_or_compute(
+        cache_key=f"profiles:{hermes_dir}",
+        compute_fn=lambda: _do_collect_profiles(hermes_path),
+        dir_paths=paths_to_monitor,
+        ttl=45,  # 45 second cache
+    )

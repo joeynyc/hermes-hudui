@@ -8,6 +8,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
+from ..cache import get_cached_or_compute
 from .models import SkillInfo, SkillsState
 from .utils import default_hermes_dir
 
@@ -38,7 +39,11 @@ def _parse_skill_md(path: Path) -> dict:
         lines = content.split("\n")
         for line in lines:
             stripped = line.strip()
-            if stripped and not stripped.startswith("#") and not stripped.startswith("---"):
+            if (
+                stripped
+                and not stripped.startswith("#")
+                and not stripped.startswith("---")
+            ):
                 info["description"] = stripped[:120]
                 break
 
@@ -52,15 +57,8 @@ def _detect_custom(skill: SkillInfo, bulk_timestamps: set[int]) -> bool:
     return skill_minute not in bulk_timestamps
 
 
-def collect_skills(hermes_dir: str | None = None) -> SkillsState:
-    """Collect all skills metadata."""
-    if hermes_dir is None:
-        hermes_dir = default_hermes_dir(hermes_dir)
-
-    skills_dir = Path(hermes_dir) / "skills"
-    if not skills_dir.exists():
-        return SkillsState()
-
+def _do_collect_skills(skills_dir: Path) -> SkillsState:
+    """Actually scan skills directory (internal, uncached)."""
     skills: list[SkillInfo] = []
     mtimes: list[int] = []
 
@@ -83,14 +81,16 @@ def collect_skills(hermes_dir: str | None = None) -> SkillsState:
 
         meta = _parse_skill_md(skill_md)
 
-        skills.append(SkillInfo(
-            name=meta.get("name", name),
-            category=category,
-            description=meta.get("description", ""),
-            path=str(skill_md),
-            modified_at=mtime,
-            file_size=stat.st_size,
-        ))
+        skills.append(
+            SkillInfo(
+                name=meta.get("name", name),
+                category=category,
+                description=meta.get("description", ""),
+                path=str(skill_md),
+                modified_at=mtime,
+                file_size=stat.st_size,
+            )
+        )
         mtimes.append(mtime_minute)
 
     # Detect bulk install timestamps (most common minute-rounded mtimes)
@@ -103,3 +103,20 @@ def collect_skills(hermes_dir: str | None = None) -> SkillsState:
             skill.is_custom = _detect_custom(skill, bulk_timestamps)
 
     return SkillsState(skills=skills)
+
+
+def collect_skills(hermes_dir: str | None = None) -> SkillsState:
+    """Collect all skills metadata (cached, invalidates on directory changes)."""
+    if hermes_dir is None:
+        hermes_dir = default_hermes_dir(hermes_dir)
+
+    skills_dir = Path(hermes_dir) / "skills"
+    if not skills_dir.exists():
+        return SkillsState()
+
+    return get_cached_or_compute(
+        cache_key=f"skills:{hermes_dir}",
+        compute_fn=lambda: _do_collect_skills(skills_dir),
+        dir_paths=[skills_dir],
+        ttl=60,  # 60 second cache even if unchanged
+    )

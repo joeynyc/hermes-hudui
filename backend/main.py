@@ -13,7 +13,24 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .api import state, memory, sessions, skills, cron, projects, health, profiles, patterns, corrections, agents, timeline, snapshots, dashboard, token_costs
+from .api import (
+    state,
+    memory,
+    sessions,
+    skills,
+    cron,
+    projects,
+    health,
+    profiles,
+    patterns,
+    corrections,
+    agents,
+    timeline,
+    snapshots,
+    dashboard,
+    token_costs,
+    cache,
+)
 
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -53,6 +70,7 @@ app.include_router(timeline.router, prefix="/api")
 app.include_router(snapshots.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(token_costs.router, prefix="/api")
+app.include_router(cache.router, prefix="/api")
 
 # Serve frontend static files (after API routes so /api takes priority)
 if STATIC_DIR.exists():
@@ -64,14 +82,19 @@ def cli():
     parser = argparse.ArgumentParser(description="Hermes HUD Web UI")
     parser.add_argument("--port", type=int, default=3001, help="Port (default: 3001)")
     parser.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
-    parser.add_argument("--dev", action="store_true", help="Development mode (auto-reload)")
-    parser.add_argument("--hermes-dir", default=None, help="Hermes data directory (default: ~/.hermes)")
+    parser.add_argument(
+        "--dev", action="store_true", help="Development mode (auto-reload)"
+    )
+    parser.add_argument(
+        "--hermes-dir", default=None, help="Hermes data directory (default: ~/.hermes)"
+    )
     args = parser.parse_args()
 
     if args.hermes_dir:
         os.environ["HERMES_HOME"] = args.hermes_dir
 
     import uvicorn
+
     uvicorn.run(
         "backend.main:app",
         host=args.host,

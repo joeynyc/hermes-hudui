@@ -8,18 +8,104 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-from .models import HourlyActivity, PatternsState, RepeatedPrompt, TaskCluster, ToolWorkflow
+from ..cache import get_cached_or_compute
+from .models import (
+    HourlyActivity,
+    PatternsState,
+    RepeatedPrompt,
+    TaskCluster,
+    ToolWorkflow,
+)
 from .utils import default_hermes_dir, parse_timestamp, safe_get
 
 # First match wins
 _CLUSTERS = [
-    ("git ops",    ["commit", "push", "pull", "merge", "branch", "rebase", " pr ", "pull request", "release", "tag", "stash"]),
-    ("debugging",  ["fix", "bug", "error", "broken", "failing", "crash", "traceback", "exception", "not work", "doesn't work"]),
-    ("code gen",   ["create", "implement", "add feature", "build", "write a", "new function", "new class", "generate"]),
-    ("refactor",   ["refactor", "rename", "clean up", "simplify", "extract", "reorganize", "restructure", "move"]),
-    ("research",   ["explain", "how does", "what is", "what are", "find", "search", "look at", "investigate", "understand"]),
-    ("config/ops", ["install", "configure", "setup", "deploy", "env", "systemd", "cron", "docker", "service"]),
-    ("docs",       ["readme", "documentation", "comment", "docstring", "document"]),
+    (
+        "git ops",
+        [
+            "commit",
+            "push",
+            "pull",
+            "merge",
+            "branch",
+            "rebase",
+            " pr ",
+            "pull request",
+            "release",
+            "tag",
+            "stash",
+        ],
+    ),
+    (
+        "debugging",
+        [
+            "fix",
+            "bug",
+            "error",
+            "broken",
+            "failing",
+            "crash",
+            "traceback",
+            "exception",
+            "not work",
+            "doesn't work",
+        ],
+    ),
+    (
+        "code gen",
+        [
+            "create",
+            "implement",
+            "add feature",
+            "build",
+            "write a",
+            "new function",
+            "new class",
+            "generate",
+        ],
+    ),
+    (
+        "refactor",
+        [
+            "refactor",
+            "rename",
+            "clean up",
+            "simplify",
+            "extract",
+            "reorganize",
+            "restructure",
+            "move",
+        ],
+    ),
+    (
+        "research",
+        [
+            "explain",
+            "how does",
+            "what is",
+            "what are",
+            "find",
+            "search",
+            "look at",
+            "investigate",
+            "understand",
+        ],
+    ),
+    (
+        "config/ops",
+        [
+            "install",
+            "configure",
+            "setup",
+            "deploy",
+            "env",
+            "systemd",
+            "cron",
+            "docker",
+            "service",
+        ],
+    ),
+    ("docs", ["readme", "documentation", "comment", "docstring", "document"]),
 ]
 
 
@@ -48,15 +134,8 @@ def _top_trigrams(sequences: list[list[str]], n: int = 10) -> list[ToolWorkflow]
     ]
 
 
-def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
-    """Collect prompt pattern analytics from state.db."""
-    if hermes_dir is None:
-        hermes_dir = default_hermes_dir()
-
-    db_path = str(Path(hermes_dir) / "state.db")
-    if not Path(db_path).exists():
-        return PatternsState()
-
+def _do_collect_patterns(db_path: str) -> PatternsState:
+    """Actually collect pattern analytics (internal, uncached)."""
     cluster_buckets: dict[str, dict] = {
         label: {"count": 0, "msg_sum": 0, "tool_sum": 0, "titles": []}
         for label, _ in _CLUSTERS
@@ -166,27 +245,34 @@ def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
     for label, bucket in cluster_buckets.items():
         if bucket["count"] == 0:
             continue
-        clusters.append(TaskCluster(
-            label=label,
-            count=bucket["count"],
-            avg_messages=bucket["msg_sum"] / bucket["count"],
-            avg_tool_calls=bucket["tool_sum"] / bucket["count"],
-            example_titles=bucket["titles"],
-        ))
+        clusters.append(
+            TaskCluster(
+                label=label,
+                count=bucket["count"],
+                avg_messages=bucket["msg_sum"] / bucket["count"],
+                avg_tool_calls=bucket["tool_sum"] / bucket["count"],
+                example_titles=bucket["titles"],
+            )
+        )
     clusters.sort(key=lambda c: -c.count)
 
     repeated = []
     for norm, count in prompt_counts.most_common(15):
         if count < 2:
             break
-        repeated.append(RepeatedPrompt(
-            pattern=norm,
-            count=count,
-            last_seen=prompt_last_seen.get(norm, datetime.now()),
-            could_be_skill=count >= 3,
-        ))
+        repeated.append(
+            RepeatedPrompt(
+                pattern=norm,
+                count=count,
+                last_seen=prompt_last_seen.get(norm, datetime.now()),
+                could_be_skill=count >= 3,
+            )
+        )
 
-    hourly = [hour_map.get(h, HourlyActivity(hour=h, sessions=0, messages=0)) for h in range(24)]
+    hourly = [
+        hour_map.get(h, HourlyActivity(hour=h, sessions=0, messages=0))
+        for h in range(24)
+    ]
     workflows = _top_trigrams(list(session_tools.values()))
 
     return PatternsState(
@@ -195,4 +281,21 @@ def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
         hourly_activity=hourly,
         tool_workflows=workflows,
         total_user_messages=total_user_messages,
+    )
+
+
+def collect_patterns(hermes_dir: str | None = None) -> PatternsState:
+    """Collect prompt pattern analytics from state.db (cached)."""
+    if hermes_dir is None:
+        hermes_dir = default_hermes_dir()
+
+    db_path = Path(hermes_dir) / "state.db"
+    if not db_path.exists():
+        return PatternsState()
+
+    return get_cached_or_compute(
+        cache_key=f"patterns:{hermes_dir}",
+        compute_fn=lambda: _do_collect_patterns(str(db_path)),
+        file_paths=[db_path],
+        ttl=60,  # 60 second cache
     )

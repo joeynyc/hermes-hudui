@@ -11,6 +11,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+from ..cache import get_cached_or_compute
 from .models import DailyStats, SessionInfo, SessionsState
 from .utils import default_hermes_dir, safe_get
 
@@ -40,15 +41,8 @@ def _extract_tool_usage(db_path: str) -> dict[str, int]:
     return usage
 
 
-def collect_sessions(hermes_dir: str | None = None) -> SessionsState:
-    """Collect session data from state.db."""
-    if hermes_dir is None:
-        hermes_dir = default_hermes_dir(hermes_dir)
-
-    db_path = str(Path(hermes_dir) / "state.db")
-    if not os.path.exists(db_path):
-        return SessionsState()
-
+def _do_collect_sessions(db_path: str) -> SessionsState:
+    """Actually read sessions from SQLite (internal, uncached)."""
     sessions: list[SessionInfo] = []
     daily_stats: list[DailyStats] = []
 
@@ -85,22 +79,24 @@ def collect_sessions(hermes_dir: str | None = None) -> SessionsState:
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-                sessions.append(SessionInfo(
-                    id=safe_get(row, "id", ""),
-                    source=safe_get(row, "source", "unknown"),
-                    title=safe_get(row, "title"),
-                    started_at=started,
-                    ended_at=ended,
-                    message_count=safe_get(row, "message_count", 0),
-                    tool_call_count=safe_get(row, "tool_call_count", 0),
-                    input_tokens=safe_get(row, "input_tokens", 0),
-                    output_tokens=safe_get(row, "output_tokens", 0),
-                    cache_read_tokens=safe_get(row, "cache_read_tokens", 0),
-                    cache_write_tokens=safe_get(row, "cache_write_tokens", 0),
-                    reasoning_tokens=safe_get(row, "reasoning_tokens", 0),
-                    estimated_cost_usd=safe_get(row, "estimated_cost_usd", 0.0),
-                    model=model,
-                ))
+                sessions.append(
+                    SessionInfo(
+                        id=safe_get(row, "id", ""),
+                        source=safe_get(row, "source", "unknown"),
+                        title=safe_get(row, "title"),
+                        started_at=started,
+                        ended_at=ended,
+                        message_count=safe_get(row, "message_count", 0),
+                        tool_call_count=safe_get(row, "tool_call_count", 0),
+                        input_tokens=safe_get(row, "input_tokens", 0),
+                        output_tokens=safe_get(row, "output_tokens", 0),
+                        cache_read_tokens=safe_get(row, "cache_read_tokens", 0),
+                        cache_write_tokens=safe_get(row, "cache_write_tokens", 0),
+                        reasoning_tokens=safe_get(row, "reasoning_tokens", 0),
+                        estimated_cost_usd=safe_get(row, "estimated_cost_usd", 0.0),
+                        model=model,
+                    )
+                )
             except Exception:
                 logger.warning("Skipping unparseable session row", exc_info=True)
                 continue
@@ -119,13 +115,15 @@ def collect_sessions(hermes_dir: str | None = None) -> SessionsState:
 
         for row in cursor.fetchall():
             try:
-                daily_stats.append(DailyStats(
-                    date=safe_get(row, "day", ""),
-                    sessions=safe_get(row, "sessions", 0),
-                    messages=safe_get(row, "msgs", 0),
-                    tool_calls=safe_get(row, "tools", 0),
-                    tokens=safe_get(row, "tokens", 0),
-                ))
+                daily_stats.append(
+                    DailyStats(
+                        date=safe_get(row, "day", ""),
+                        sessions=safe_get(row, "sessions", 0),
+                        messages=safe_get(row, "msgs", 0),
+                        tool_calls=safe_get(row, "tools", 0),
+                        tokens=safe_get(row, "tokens", 0),
+                    )
+                )
             except Exception:
                 logger.warning("Skipping unparseable daily stats row", exc_info=True)
                 continue
@@ -141,4 +139,21 @@ def collect_sessions(hermes_dir: str | None = None) -> SessionsState:
         sessions=sessions,
         daily_stats=daily_stats,
         tool_usage=tool_usage,
+    )
+
+
+def collect_sessions(hermes_dir: str | None = None) -> SessionsState:
+    """Collect session data from state.db (cached, invalidates on db change)."""
+    if hermes_dir is None:
+        hermes_dir = default_hermes_dir(hermes_dir)
+
+    db_path = Path(hermes_dir) / "state.db"
+    if not db_path.exists():
+        return SessionsState()
+
+    return get_cached_or_compute(
+        cache_key=f"sessions:{hermes_dir}",
+        compute_fn=lambda: _do_collect_sessions(str(db_path)),
+        file_paths=[db_path],
+        ttl=30,  # 30 second cache even if file unchanged
     )
