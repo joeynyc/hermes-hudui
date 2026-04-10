@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { ThemeProvider } from './hooks/useTheme'
 import { refreshAll } from './hooks/useApi'
 import { getSelectedProfile, setSelectedProfile as saveSelectedProfile } from './lib/profile'
