@@ -5,6 +5,11 @@ import { timeAgo, formatSize } from '../lib/utils'
 
 // Componente para mostrar detalles del skill en un modal/overlay
 function SkillDetailModal({ skill, onClose }: { skill: any; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  const { data: contentData, isLoading: isContentLoading, error: fetchError } = useApi(
+    skill?.path ? `/skills/content?path=${encodeURIComponent(skill.path)}` : null
+  )
+
   if (!skill) return null
 
   return (
@@ -81,11 +86,47 @@ function SkillDetailModal({ skill, onClose }: { skill: any; onClose: () => void 
           </div>
         </div>
 
+        {/* File Content */}
+        <div className="mb-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-hud-primary">SKILL.md Content</h3>
+            <button
+              onClick={() => {
+                if (contentData?.content) {
+                  navigator.clipboard.writeText(contentData.content)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }
+              }}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                copied ? 'bg-hud-success text-hud-bg-deep' : 'bg-hud-bg-panel text-hud-primary hover:bg-hud-bg-hover'
+              }`}
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+          <div className="relative group">
+            {isContentLoading ? (
+              <div className="h-32 flex items-center justify-center rounded bg-hud-bg-panel border border-hud-border/30 animate-pulse text-hud-text-dim text-[11px]">
+                Loading content...
+              </div>
+            ) : contentData?.content ? (
+              <pre className="p-3 rounded bg-hud-bg-panel border border-hud-border/30 overflow-x-auto text-[12px] font-mono leading-relaxed max-h-[400px]">
+                <code>{contentData.content}</code>
+              </pre>
+            ) : (
+              <div className="p-3 rounded bg-hud-bg-panel border border-hud-border/30 text-hud-text-dim text-[11px] italic">
+                {fetchError ? 'Error loading file content.' : 'No file content available.'}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Footer */}
-        <div className="mt-4 flex justify-end">
+        <div className="mt-6 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded text-sm font-medium transition-colors hover:bg-hud-bg-hover"
+            className="px-6 py-1.5 rounded text-sm font-bold uppercase tracking-wider transition-colors hover:bg-hud-bg-hover text-hud-text-dim hover:text-hud-primary"
           >
             Close
           </button>
