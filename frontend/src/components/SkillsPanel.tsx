@@ -32,14 +32,14 @@ function SkillDetailModal({ skill, onClose }: { skill: any; onClose: () => void 
                 </span>
               )}
               <span className="text-hud-text-dim">
-                Categoría: {skill.category || 'N/A'}
+                Category: {skill.category || 'N/A'}
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
             className="text-hud-text-dim hover:text-hud-primary transition-colors"
-            aria-label="Cerrar"
+            aria-label="Close"
           >
             ✕
           </button>
@@ -47,36 +47,36 @@ function SkillDetailModal({ skill, onClose }: { skill: any; onClose: () => void 
 
         {/* Description */}
         <div className="mb-4">
-          <h3 className="mb-1 text-sm font-semibold text-hud-primary">Descripción</h3>
+          <h3 className="mb-1 text-sm font-semibold text-hud-primary">Description</h3>
           <p className="text-sm text-hud-text">
-            {skill.description || 'No hay descripción disponible.'}
+            {skill.description || 'No description available.'}
           </p>
         </div>
 
         {/* Metadata grid */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="p-2 rounded bg-hud-bg-panel">
-            <div className="text-[11px] text-hud-text-dim uppercase tracking-wide">Fecha de modificación</div>
+            <div className="text-[11px] text-hud-text-dim uppercase tracking-wide">Modified at</div>
             <div className="text-sm font-medium text-hud-text">
               {skill.modified_at ? new Date(skill.modified_at).toLocaleString() : 'N/A'}
             </div>
           </div>
           <div className="p-2 rounded bg-hud-bg-panel">
-            <div className="text-[11px] text-hud-text-dim uppercase tracking-wide">Tamaño del archivo</div>
+            <div className="text-[11px] text-hud-text-dim uppercase tracking-wide">File size</div>
             <div className="text-sm font-medium text-hud-text">
               {formatSize(skill.file_size || 0)}
             </div>
           </div>
           <div className="p-2 rounded bg-hud-bg-panel">
-            <div className="text-[11px] text-hud-text-dim uppercase tracking-wide">Ruta del archivo</div>
+            <div className="text-[11px] text-hud-text-dim uppercase tracking-wide">File path</div>
             <div className="text-sm font-medium text-hud-text truncate" title={skill.path || 'N/A'}>
               {skill.path || 'N/A'}
             </div>
           </div>
           <div className="p-2 rounded bg-hud-bg-panel">
-            <div className="text-[11px] text-hud-text-dim uppercase tracking-wide">Tipo</div>
+            <div className="text-[11px] text-hud-text-dim uppercase tracking-wide">Type</div>
             <div className="text-sm font-medium text-hud-text">
-              {skill.is_custom ? 'Personalizado' : 'Integrado'}
+              {skill.is_custom ? 'Custom' : 'Integrated'}
             </div>
           </div>
         </div>
@@ -87,7 +87,7 @@ function SkillDetailModal({ skill, onClose }: { skill: any; onClose: () => void 
             onClick={onClose}
             className="px-4 py-1.5 rounded text-sm font-medium transition-colors hover:bg-hud-bg-hover"
           >
-            Cerrar
+            Close
           </button>
         </div>
       </div>
@@ -121,9 +121,8 @@ function SkillItem({
 
   return (
     <div
-      className={`py-2 px-2 text-[13px] rounded transition-colors cursor-pointer ${
-        onOpenDetails ? 'hover:bg-hud-bg-hover' : ''
-      }`}
+      className={`py-2 px-2 text-[13px] rounded transition-colors cursor-pointer ${onOpenDetails ? 'hover:bg-hud-bg-hover' : ''
+        }`}
       style={{ borderLeft: '2px solid var(--hud-border)' }}
       onClick={handleClick}
       role="button"
@@ -251,7 +250,7 @@ export default function SkillsPanel() {
 
       {/* Selected category skills OR recently modified */}
       {selectedCat ? (
-        <Panel title={selectedCat} className="col-span-2">
+        <Panel title={selectedCat} className="col-span-1">
           <div className="space-y-2">
             {catSkills.map((skill: any) => (
               <SkillItem
