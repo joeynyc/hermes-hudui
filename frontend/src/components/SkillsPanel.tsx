@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useApi } from '../hooks/useApi'
 import Panel from './Panel'
 import { timeAgo, formatSize } from '../lib/utils'
@@ -20,25 +20,25 @@ function SkillDetailModal({ skill, onClose }: { skill: any; onClose: () => void 
         aria-labelledby="skill-detail-title"
       >
         {/* Header */}
-        <div className="mb-4 flex items-start justify-between border-b border-hud-border pb-3">
+        <div className="mb-6 flex items-start justify-between border-b border-hud-border pb-4">
           <div>
-            <h2 id="skill-detail-title" className="text-xl font-bold text-hud-primary">
+            <h2 id="skill-detail-title" className="text-xl font-bold text-hud-primary glow">
               {skill.name}
             </h2>
-            <div className="mt-1 flex items-center gap-2 text-sm">
+            <div className="mt-1.5 flex items-center gap-2 text-sm">
               {skill.is_custom && (
-                <span className="px-1.5 rounded bg-hud-accent text-hud-bg-deep">
+                <span className="px-1.5 py-0.5 rounded bg-hud-accent text-hud-bg-deep text-[11px] font-bold uppercase tracking-wider">
                   custom
                 </span>
               )}
               <span className="text-hud-text-dim">
-                Category: {skill.category || 'N/A'}
+                Category: <span className="text-hud-text">{skill.category || 'N/A'}</span>
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-hud-text-dim hover:text-hud-primary transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-hud-bg-hover text-hud-text-dim hover:text-hud-primary transition-colors"
             aria-label="Close"
           >
             ✕
@@ -121,8 +121,9 @@ function SkillItem({
 
   return (
     <div
-      className={`py-2 px-2 text-[13px] rounded transition-colors cursor-pointer ${onOpenDetails ? 'hover:bg-hud-bg-hover' : ''
-        }`}
+      className={`py-2 px-2 text-[13px] rounded transition-colors cursor-pointer ${
+        onOpenDetails ? 'hover:bg-hud-bg-hover' : ''
+      }`}
       style={{ borderLeft: '2px solid var(--hud-border)' }}
       onClick={handleClick}
       role="button"
@@ -131,7 +132,7 @@ function SkillItem({
       title={onOpenDetails ? 'Click para ver detalles' : ''}
     >
       <div className="flex items-center gap-2 mb-0.5">
-        <span className="font-bold" style={{ color: 'var(--hud-primary)' }}>
+        <span className="font-bold text-hud-primary">
           {skill.name}
         </span>
         {variant === 'recent' && (
@@ -140,22 +141,23 @@ function SkillItem({
           </span>
         )}
         {skill.is_custom && (
-          <span className="text-[13px] px-1.5 rounded bg-hud-accent text-hud-bg-deep">
+          <span className="text-[13px] px-1.5 rounded bg-hud-accent text-hud-bg-deep font-semibold">
             custom
           </span>
         )}
         {variant === 'category' && (
-          <span className="text-[13px] ml-auto tabular-nums">
-            {formatSize(skill.file_size)}
+          <span className="text-[13px] ml-auto tabular-nums opacity-60">
+            {formatSize(skill.file_size || 0)}
           </span>
         )}
       </div>
       <div className="text-[13px] text-hud-text-dim">
-        {skill.description?.slice(0, descLimit)}{skill.description?.length > descLimit ? '...' : ''}
+        {skill.description?.slice(0, descLimit) || 'No description'}
+        {skill.description?.length > descLimit ? '...' : ''}
       </div>
-      <div className="text-[13px] mt-0.5 text-hud-text-dim">
+      <div className="text-[13px] mt-0.5 text-hud-text-dim opacity-50">
         {variant === 'category'
-          ? `${skill.modified_at ? new Date(skill.modified_at).toLocaleDateString() : ''} · ${skill.path?.split('/').slice(-3).join('/')}`
+          ? `${skill.modified_at ? new Date(skill.modified_at).toLocaleDateString() : ''} · ${skill.path?.split(/[/\\]/).slice(-3).join('/')}`
           : skill.modified_at ? timeAgo(skill.modified_at) : ''}
       </div>
     </div>
@@ -170,7 +172,7 @@ export default function SkillsPanel() {
   if (isLoading || !data) {
     return (
       <Panel title="Skills" className="col-span-full">
-        <div className="glow text-[13px] animate-pulse">Scanning skill library...</div>
+        <div className="glow text-[13px] animate-pulse py-4">Scanning skill library...</div>
       </Panel>
     )
   }
@@ -190,15 +192,15 @@ export default function SkillsPanel() {
     <>
       {/* Category overview */}
       <Panel title="Skill Library" className="col-span-1">
-        <div className="flex gap-2 mb-3">
-          <span className="text-[13px] px-2 py-0.5 rounded bg-hud-bg-panel text-hud-primary">
-            {data.total} total
+        <div className="flex flex-wrap gap-2 mb-4">
+          <span className="text-[11px] px-2 py-0.5 rounded border border-hud-primary/30 bg-hud-primary/5 text-hud-primary font-bold uppercase tracking-wider">
+            {data.total} TOTAL
           </span>
-          <span className="text-[13px] px-2 py-0.5 rounded bg-hud-bg-panel text-hud-accent">
-            {data.custom_count} custom
+          <span className="text-[11px] px-2 py-0.5 rounded border border-hud-accent/30 bg-hud-accent/5 text-hud-accent font-bold uppercase tracking-wider">
+            {data.custom_count} CUSTOM
           </span>
-          <span className="text-[13px] text-hud-text-dim">
-            {sorted.length} categories
+          <span className="text-[11px] py-0.5 text-hud-text-dim font-medium uppercase tracking-wider ml-auto">
+            {sorted.length} CATS
           </span>
         </div>
 
@@ -225,13 +227,15 @@ export default function SkillsPanel() {
                 >
                   {cat}
                 </span>
-                <div className="flex-1 h-[6px] rounded overflow-hidden">
+                <div className="flex-1 h-[4px] rounded-full bg-hud-bg-deep/50 overflow-hidden relative">
                   <div
                     style={{
                       width: `${pct}%`,
                       height: '100%',
                       background: isSelected ? 'var(--hud-primary)' : 'var(--hud-primary-dim)',
+                      boxShadow: isSelected ? '0 0 8px var(--hud-primary-glow)' : 'none',
                     }}
+                    className="transition-all duration-500"
                   />
                 </div>
                 <span
@@ -261,12 +265,12 @@ export default function SkillsPanel() {
               />
             ))}
             {catSkills.length === 0 && (
-              <div className="text-[13px] text-hud-text-dim">No hay skills en esta categoría</div>
+              <div className="text-[13px] text-hud-text-dim">No skills found</div>
             )}
           </div>
         </Panel>
       ) : (
-        <Panel title="Recently Modified" className="col-span-2">
+        <Panel title="Recently Modified" className="col-span-1">
           <div className="space-y-2">
             {recentlyMod.map((skill: any) => (
               <SkillItem
@@ -278,7 +282,7 @@ export default function SkillsPanel() {
             ))}
             {recentlyMod.length === 0 && (
               <div className="text-[13px] text-hud-text-dim">
-                No hay modificaciones recientes
+                No recent modifications
               </div>
             )}
           </div>
