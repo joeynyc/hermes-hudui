@@ -29,7 +29,6 @@ export default function ChatPanel({ profile }: ChatPanelProps) {
 
   // States for error handling
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [isRetrying, setIsRetrying] = useState(false)
 
   // Load sessions
   const loadSessions = useCallback(async () => {
