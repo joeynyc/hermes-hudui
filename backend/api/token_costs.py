@@ -4,6 +4,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from fastapi import APIRouter
 from starlette.concurrency import run_in_threadpool
 from .profile_scope import resolve_profile_scope
 
