@@ -1,4 +1,6 @@
+from fastapi import APIRouter
 from starlette.concurrency import run_in_threadpool
+from backend.collectors.sessions import collect_sessions
 from .profile_scope import collect_with_profile
 
 router = APIRouter()
