@@ -144,7 +144,7 @@ If you also have the TUI installed (`pip install hermes-hud`), you can enable it
 MIT — see [LICENSE](LICENSE).
 ## Star History
 
-<a href="https://www.star-history.com/?repos=joeynyc%2Fhermes-hudui&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=joeynyc%2Fhermes-hudui&type=date&logscale=&legend=top-left">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=joeynyc/hermes-hudui&type=date&theme=dark&legend=top-left" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=joeynyc/hermes-hudui&type=date&legend=top-left" />
