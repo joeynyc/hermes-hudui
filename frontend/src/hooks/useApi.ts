@@ -1,4 +1,5 @@
 import useSWR, { mutate } from 'swr'
+import { getSelectedProfile } from '../lib/profile'
 
 const fetcher = async (url: string) => {
   const res = await fetch(url)
@@ -9,15 +10,22 @@ const fetcher = async (url: string) => {
   return res.json()
 }
 
-export function useApi<T = any>(path: string, refreshInterval = 30000) {
-  return useSWR<T>(`/api${path}`, fetcher, {
+export function useApi<T = any>(path: string | null, refreshInterval = 30000) {
+  const profile = getSelectedProfile()
+  const key = path 
+    ? `/api${path}${path.includes('?') ? '&' : '?'}profile=${profile}` 
+    : null
+    
+  return useSWR<T>(key, fetcher, {
     refreshInterval,
     revalidateOnFocus: false,
     dedupingInterval: 5000,
     errorRetryCount: 3,
     errorRetryInterval: 2000,
     onError: (err) => {
-      console.warn(`[HUD] ${path}: ${err.message}`)
+      if (path) {
+        console.warn(`[HUD] ${path}: ${err.message}`)
+      }
     },
   })
 }

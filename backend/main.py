@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .api import state, memory, sessions, skills, cron, projects, health, profiles, patterns, corrections, agents, timeline, snapshots, dashboard, token_costs
+from .api import state, memory, sessions, skills, cron, projects, health, profiles, patterns, corrections, agents, timeline, snapshots, dashboard, token_costs, chat
 
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -53,6 +53,7 @@ app.include_router(timeline.router, prefix="/api")
 app.include_router(snapshots.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(token_costs.router, prefix="/api")
+app.include_router(chat.router, prefix="/api")
 
 # Serve frontend static files (after API routes so /api takes priority)
 if STATIC_DIR.exists():

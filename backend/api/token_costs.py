@@ -5,8 +5,8 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter
-
-from backend.collectors.utils import default_hermes_dir
+from starlette.concurrency import run_in_threadpool
+from .profile_scope import resolve_profile_scope
 
 router = APIRouter()
 
@@ -117,158 +117,161 @@ def _calc_cost(tokens: dict, pricing: dict) -> float:
     )
 
 
-@router.get("/token-costs")
-async def get_token_costs():
-    """Token usage and estimated costs, broken down by model."""
-    hermes_dir = default_hermes_dir()
-    db_path = str(Path(hermes_dir) / "state.db")
-
-    if not Path(db_path).exists():
-        return {"error": "state.db not found"}
-
-    conn = sqlite3.connect(db_path)
+def _collect_token_data(db_path: str):
+    """Synchronous helper to read data from sqlite."""
+    conn = sqlite3.connect(db_path, timeout=5.0)
     conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
+        today = datetime.now().strftime("%Y-%m-%d")
 
-    today = datetime.now().strftime("%Y-%m-%d")
+        # Query sessions - only columns we need
+        cur.execute("""
+            SELECT model, started_at, message_count, tool_call_count,
+                   input_tokens, output_tokens,
+                   cache_read_tokens, cache_write_tokens,
+                   reasoning_tokens
+            FROM sessions
+            ORDER BY started_at DESC
+            LIMIT 5000
+        """)
+        return cur.fetchall(), today
+    finally:
+        conn.close()
 
-    # Query all sessions with model column
-    cur.execute("""
-        SELECT id, source, started_at, model,
-               message_count, tool_call_count,
-               input_tokens, output_tokens,
-               cache_read_tokens, cache_write_tokens,
-               reasoning_tokens
-        FROM sessions
-        ORDER BY started_at ASC
-    """)
 
-    # Per-model aggregation
-    by_model: dict[str, dict] = {}
+@router.get("/token-costs")
+async def get_token_costs(profile: str | None = None):
+    """Token usage and estimated costs, broken down by model."""
+    profile_name, hermes_dir = resolve_profile_scope(profile)
+    db_path = Path(hermes_dir) / "state.db"
 
-    # Today aggregation
-    today_data = {
-        "session_count": 0, "message_count": 0,
-        "input_tokens": 0, "output_tokens": 0,
-        "cache_read_tokens": 0, "cache_write_tokens": 0,
-        "reasoning_tokens": 0, "cost": 0.0,
-    }
+    if not db_path.exists():
+        return {"error": "state.db not found", "profile": profile_name}
 
-    # All-time totals
-    all_input = all_output = all_cache_r = all_cache_w = all_reasoning = 0
-    all_messages = all_tool_calls = 0
-    all_cost = 0.0
-    total_sessions = 0
+    try:
+        # Offload blocking I/O to a threadpool
+        rows, today = await run_in_threadpool(_collect_token_data, str(db_path))
 
-    # Daily trend
-    daily: dict[str, dict] = {}
+        # Per-model aggregation
+        by_model: dict[str, dict] = {}
+        today_data = {
+            "session_count": 0, "message_count": 0,
+            "input_tokens": 0, "output_tokens": 0,
+            "cache_read_tokens": 0, "cache_write_tokens": 0,
+            "reasoning_tokens": 0, "cost": 0.0,
+        }
+        all_input = all_output = all_cache_r = all_cache_w = all_reasoning = 0
+        all_messages = all_tool_calls = 0
+        all_cost = 0.0
+        total_sessions = 0
+        daily: dict[str, dict] = {}
 
-    for row in cur.fetchall():
-        model = row["model"] or "unknown"
-        started_ts = row["started_at"]
-        started = datetime.fromtimestamp(started_ts) if started_ts else None
-        day = started.strftime("%Y-%m-%d") if started else "unknown"
-        is_today = day == today
+        for row in rows:
+            model = row["model"] or "unknown"
+            started_ts = row["started_at"]
+            started = datetime.fromtimestamp(started_ts) if started_ts else None
+            day = started.strftime("%Y-%m-%d") if started else "unknown"
+            is_today = day == today
 
-        tokens = {
-            "input": row["input_tokens"] or 0,
-            "output": row["output_tokens"] or 0,
-            "cache_read": row["cache_read_tokens"] or 0,
-            "cache_write": row["cache_write_tokens"] or 0,
-            "reasoning": row["reasoning_tokens"] or 0,
+            tokens = {
+                "input": row["input_tokens"] or 0,
+                "output": row["output_tokens"] or 0,
+                "cache_read": row["cache_read_tokens"] or 0,
+                "cache_write": row["cache_write_tokens"] or 0,
+                "reasoning": row["reasoning_tokens"] or 0,
+            }
+
+            pricing, matched = _get_pricing(model)
+            cost = _calc_cost(tokens, pricing)
+
+            # Aggregate
+            if model not in by_model:
+                by_model[model] = {
+                    "model": model, "matched_pricing": matched,
+                    "session_count": 0, "message_count": 0,
+                    "input_tokens": 0, "output_tokens": 0,
+                    "cache_read_tokens": 0, "cache_write_tokens": 0,
+                    "reasoning_tokens": 0, "cost": 0.0,
+                }
+            m = by_model[model]
+            m["session_count"] += 1
+            m["message_count"] += row["message_count"] or 0
+            m["input_tokens"] += tokens["input"]
+            m["output_tokens"] += tokens["output"]
+            m["cache_read_tokens"] += tokens["cache_read"]
+            m["cache_write_tokens"] += tokens["cache_write"]
+            m["reasoning_tokens"] += tokens["reasoning"]
+            m["cost"] += cost
+
+            if is_today:
+                today_data["session_count"] += 1
+                today_data["message_count"] += row["message_count"] or 0
+                today_data["input_tokens"] += tokens["input"]
+                today_data["output_tokens"] += tokens["output"]
+                today_data["cache_read_tokens"] += tokens["cache_read"]
+                today_data["cache_write_tokens"] += tokens["cache_write"]
+                today_data["reasoning_tokens"] += tokens["reasoning"]
+                today_data["cost"] += cost
+
+            total_sessions += 1
+            all_messages += row["message_count"] or 0
+            all_tool_calls += row["tool_call_count"] or 0
+            all_input += tokens["input"]
+            all_output += tokens["output"]
+            all_cache_r += tokens["cache_read"]
+            all_cache_w += tokens["cache_write"]
+            all_reasoning += tokens["reasoning"]
+            all_cost += cost
+
+            if day not in daily:
+                daily[day] = {"cost": 0.0, "tokens": 0, "sessions": 0}
+            daily[day]["cost"] += cost
+            daily[day]["tokens"] += tokens["input"] + tokens["output"]
+            daily[day]["sessions"] += 1
+
+        # Post-process
+        model_list = sorted(by_model.values(), key=lambda m: -m["cost"])
+        for m in model_list: m["cost"] = round(m["cost"], 2)
+        today_data["cost"] = round(today_data["cost"], 2)
+
+        sorted_days = sorted(daily.keys())
+
+        return {
+            "today": {
+                "date": today,
+                **today_data,
+                "total_tokens": today_data["input_tokens"] + today_data["output_tokens"],
+                "estimated_cost_usd": today_data["cost"],
+            },
+            "all_time": {
+                "session_count": total_sessions,
+                "message_count": all_messages,
+                "tool_call_count": all_tool_calls,
+                "input_tokens": all_input,
+                "output_tokens": all_output,
+                "cache_read_tokens": all_cache_r,
+                "cache_write_tokens": all_cache_w,
+                "reasoning_tokens": all_reasoning,
+                "total_tokens": all_input + all_output,
+                "estimated_cost_usd": round(all_cost, 2),
+            },
+            "by_model": model_list,
+            "daily_trend": [
+                {
+                    "date": day,
+                    "cost": round(daily[day]["cost"], 2),
+                    "tokens": daily[day]["tokens"],
+                    "sessions": daily[day]["sessions"],
+                }
+                for day in sorted_days
+            ],
+            "pricing_table": {k: {kk: vv for kk, vv in v.items()} for k, v in MODEL_PRICING.items()},
+            "profile": profile_name,
         }
 
-        pricing, matched = _get_pricing(model)
-        cost = _calc_cost(tokens, pricing)
-
-        # Per-model
-        if model not in by_model:
-            by_model[model] = {
-                "model": model, "matched_pricing": matched,
-                "session_count": 0, "message_count": 0,
-                "input_tokens": 0, "output_tokens": 0,
-                "cache_read_tokens": 0, "cache_write_tokens": 0,
-                "reasoning_tokens": 0, "cost": 0.0,
-            }
-        m = by_model[model]
-        m["session_count"] += 1
-        m["message_count"] += row["message_count"] or 0
-        m["input_tokens"] += tokens["input"]
-        m["output_tokens"] += tokens["output"]
-        m["cache_read_tokens"] += tokens["cache_read"]
-        m["cache_write_tokens"] += tokens["cache_write"]
-        m["reasoning_tokens"] += tokens["reasoning"]
-        m["cost"] += cost
-
-        # Today
-        if is_today:
-            today_data["session_count"] += 1
-            today_data["message_count"] += row["message_count"] or 0
-            today_data["input_tokens"] += tokens["input"]
-            today_data["output_tokens"] += tokens["output"]
-            today_data["cache_read_tokens"] += tokens["cache_read"]
-            today_data["cache_write_tokens"] += tokens["cache_write"]
-            today_data["reasoning_tokens"] += tokens["reasoning"]
-            today_data["cost"] += cost
-
-        # All-time
-        total_sessions += 1
-        all_messages += row["message_count"] or 0
-        all_tool_calls += row["tool_call_count"] or 0
-        all_input += tokens["input"]
-        all_output += tokens["output"]
-        all_cache_r += tokens["cache_read"]
-        all_cache_w += tokens["cache_write"]
-        all_reasoning += tokens["reasoning"]
-        all_cost += cost
-
-        # Daily
-        if day not in daily:
-            daily[day] = {"cost": 0.0, "tokens": 0, "sessions": 0}
-        daily[day]["cost"] += cost
-        daily[day]["tokens"] += tokens["input"] + tokens["output"]
-        daily[day]["sessions"] += 1
-
-    conn.close()
-
-    # Sort models by cost descending
-    model_list = sorted(by_model.values(), key=lambda m: -m["cost"])
-
-    # Round costs
-    for m in model_list:
-        m["cost"] = round(m["cost"], 2)
-    today_data["cost"] = round(today_data["cost"], 2)
-
-    sorted_days = sorted(daily.keys())
-
-    return {
-        "today": {
-            "date": today,
-            **today_data,
-            "total_tokens": today_data["input_tokens"] + today_data["output_tokens"],
-            "estimated_cost_usd": today_data["cost"],
-        },
-        "all_time": {
-            "session_count": total_sessions,
-            "message_count": all_messages,
-            "tool_call_count": all_tool_calls,
-            "input_tokens": all_input,
-            "output_tokens": all_output,
-            "cache_read_tokens": all_cache_r,
-            "cache_write_tokens": all_cache_w,
-            "reasoning_tokens": all_reasoning,
-            "total_tokens": all_input + all_output,
-            "estimated_cost_usd": round(all_cost, 2),
-        },
-        "by_model": model_list,
-        "daily_trend": [
-            {
-                "date": day,
-                "cost": round(daily[day]["cost"], 2),
-                "tokens": daily[day]["tokens"],
-                "sessions": daily[day]["sessions"],
-            }
-            for day in sorted_days
-        ],
-        "pricing_table": {k: {kk: vv for kk, vv in v.items()} for k, v in MODEL_PRICING.items()},
-    }
+    except Exception as e:
+        return {"error": f"Database processing error: {str(e)}", "profile": profile_name}
+    finally:
+        if 'conn' in locals():
+            conn.close()
