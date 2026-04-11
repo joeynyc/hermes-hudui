@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  hermes-hudui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-hudui
+    ports:
+      - "3001:3001"
+    environment:
+      - HERMES_HOME=/data/hermes
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ~/.hermes:/data/hermes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

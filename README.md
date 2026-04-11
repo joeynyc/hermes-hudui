@@ -156,6 +156,29 @@ If you also have the TUI installed (`pip install hermes-hud`), you can enable it
 - **Windows** — via WSL (Windows Subsystem for Linux)
 - **WSL** — install script detects WSL automatically
 
+## Docker Deployment
+
+You can run Hermes HUD in a Docker container:
+
+### Quick Start
+
+```bash
+# 1. Build and run
+docker-compose up --build -d
+
+# 2. Access the UI
+# Open http://localhost:3001
+```
+
+### Configuration
+
+Edit `docker-compose.yml` to customize:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| ports | 3001:3001 | Web UI port |
+| HERMES_HOME | ~/.hermes | Hermes agent data directory inside container |
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
