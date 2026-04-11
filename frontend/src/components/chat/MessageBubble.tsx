@@ -26,6 +26,7 @@ export default function MessageBubble({ role, content, isStreaming }: MessageBub
             : isAssistant
               ? '2px solid var(--hud-primary)'
               : '2px solid var(--hud-text-dim)',
+          whiteSpace: 'pre-wrap',
         }}
       >
         {content}

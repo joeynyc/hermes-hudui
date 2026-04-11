@@ -111,10 +111,10 @@ export default function ChatPanel() {
   }
 
   return (
-    <Panel title="Chat" className="col-span-full h-full min-h-[500px]">
-      <div className="h-full flex" style={{ minHeight: '500px' }}>
+    <Panel title="Chat" className="h-full" noPadding>
+      <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <div className="w-48 shrink-0">
+        <div className="w-48 shrink-0 overflow-hidden">
           <SessionSidebar
             sessions={sessions}
             activeSessionId={activeSessionId}
