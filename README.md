@@ -84,7 +84,7 @@ hermes-hudui
 
 ## Themes
 
-Four color themes, switchable with `t` key or the theme picker:
+Six color themes, switchable with `t` key or the theme picker:
 
 | Theme | Key | Mood |
 |-------|-----|------|
@@ -92,6 +92,8 @@ Four color themes, switchable with `t` key or the theme picker:
 | **Blade Runner** | `blade-runner` | Amber/orange on warm black. Neo-noir dystopia. |
 | **fsociety** | `fsociety` | Green on pure black. Raw hacker aesthetic. |
 | **Anime** | `anime` | Purple/violet on indigo. Psychic energy. |
+| **Hermes White** | `hermes-white` | Royal blue on pale cool white — matches [hermes-agent.nousresearch.com](https://hermes-agent.nousresearch.com/) light mode. |
+| **Hermes Dark** | `hermes-dark` | Mint green accents on charcoal — matches the same site’s dark mode. |
 
 Optional CRT scanline overlay — toggle via theme picker.
 
@@ -159,6 +161,7 @@ If you also have the TUI installed (`pip install hermes-hud`), you can enable it
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=joeynyc%2Fhermes-hudui&type=date&logscale=&legend=top-left">

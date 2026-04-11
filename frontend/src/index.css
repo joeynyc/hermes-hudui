@@ -2,7 +2,7 @@
 
 /* ═══════════════════════════════════════════════════════════
    HERMES HUD — Theme System
-   4 themes as CSS custom properties. One-line switch.
+   6 themes as CSS custom properties. One-line switch.
    ═══════════════════════════════════════════════════════════ */
 
 :root {
@@ -99,6 +99,50 @@
   --hud-error: #ff5555;
   --hud-gradient-start: #875fff;
   --hud-gradient-end: #ff5fff;
+}
+
+/* ── Hermes White (hermes-agent.nousresearch.com light — blue on pale cool white) ── */
+[data-theme="hermes-white"] {
+  --hud-bg-deep: #eef4ff;
+  --hud-bg-surface: #e4ecfc;
+  --hud-bg-panel: #d8e4fb;
+  --hud-bg-hover: #cbd8f2;
+  --hud-primary: #0047ff;
+  --hud-primary-dim: #0038cc;
+  --hud-primary-glow: rgba(0, 71, 255, 0.35);
+  --hud-secondary: #3366ff;
+  --hud-accent: #0a2463;
+  --hud-text: #4a5f8f;
+  --hud-text-dim: #7a8eb8;
+  --hud-border: rgba(0, 71, 255, 0.22);
+  --hud-border-bright: rgba(0, 71, 255, 0.42);
+  --hud-success: #0d8068;
+  --hud-warning: #8b6914;
+  --hud-error: #c41e3a;
+  --hud-gradient-start: #0038cc;
+  --hud-gradient-end: #3366ff;
+}
+
+/* ── Hermes Dark (hermes-agent.nousresearch.com dark — charcoal + cream + mint code) ── */
+[data-theme="hermes-dark"] {
+  --hud-bg-deep: #080c0a;
+  --hud-bg-surface: #0a0d0b;
+  --hud-bg-panel: #101412;
+  --hud-bg-hover: #161c19;
+  --hud-primary: #a2fca2;
+  --hud-primary-dim: #6fd96f;
+  --hud-primary-glow: rgba(162, 252, 162, 0.38);
+  --hud-secondary: #b8ffc8;
+  --hud-accent: #e8e4d8;
+  --hud-text: #e8e4d8;
+  --hud-text-dim: #a09e94;
+  --hud-border: rgba(26, 30, 28, 0.95);
+  --hud-border-bright: rgba(162, 252, 162, 0.35);
+  --hud-success: #7ee787;
+  --hud-warning: #e5c07b;
+  --hud-error: #f87171;
+  --hud-gradient-start: #6fd96f;
+  --hud-gradient-end: #a2fca2;
 }
 
 /* ═══════════════════════════════════════════════════════════
