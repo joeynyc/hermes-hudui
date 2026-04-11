@@ -18,20 +18,6 @@ export default function ChatPanel() {
     loadHistory,
   } = useChat(activeSessionId)
 
-  // Create initial session if none exist and chat is available
-  useEffect(() => {
-    if (!checkingAvailability && chatAvailable && sessions.length === 0 && !loadingSessions) {
-      handleCreateSession()
-    }
-  }, [checkingAvailability, chatAvailable, sessions.length, loadingSessions])
-
-  // Load history when session changes
-  useEffect(() => {
-    if (activeSessionId) {
-      loadHistory()
-    }
-  }, [activeSessionId, loadHistory])
-
   const handleCreateSession = useCallback(async () => {
     const session = await createSession()
     if (session) {
@@ -47,6 +33,27 @@ export default function ChatPanel() {
     },
     [activeSessionId, sendMessage]
   )
+
+  // Create initial session if none exist and chat is available
+  useEffect(() => {
+    if (!checkingAvailability && chatAvailable && sessions.length === 0 && !loadingSessions) {
+      handleCreateSession()
+    }
+  }, [checkingAvailability, chatAvailable, sessions.length, loadingSessions, handleCreateSession])
+
+  // Auto-select first session when sessions exist but none is active
+  useEffect(() => {
+    if (!activeSessionId && sessions.length > 0) {
+      setActiveSessionId(sessions[0].id)
+    }
+  }, [activeSessionId, sessions])
+
+  // Load history when session changes
+  useEffect(() => {
+    if (activeSessionId) {
+      loadHistory()
+    }
+  }, [activeSessionId, loadHistory])
 
   // Show loading while checking availability
   if (checkingAvailability) {

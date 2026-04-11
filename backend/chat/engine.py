@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import fcntl
 import os
-import pty
-import select
+import re
+import shutil
 import subprocess
 import threading
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Optional
 
 from .models import (
     ChatSession,
@@ -19,6 +18,11 @@ from .models import (
 )
 from .streamer import ChatStreamer
 
+# Regex to match box-drawing decoration lines from hermes CLI output
+_BOX_DRAWING_RE = re.compile(r'^[\s\r]*[╭╮╰╯│─┌┐└┘├┤┬┴┼◉◈●▸▹▶▷■□▪▫]+[\s─╭╮╰╯│┌┐└┘├┤┬┴┼]*$')
+_SESSION_ID_RE = re.compile(r'^session_id:\s+\S+')
+_HEADER_RE = re.compile(r'[╭╰][\s─]*[◉◈●]?\s*(MOTHER|HERMES|hermes)\s*[─╮╯]')
+
 
 class ChatNotAvailableError(Exception):
     """Raised when chat functionality is not available."""
@@ -26,132 +30,8 @@ class ChatNotAvailableError(Exception):
     pass
 
 
-class CLISession:
-    """Manages a single hermes CLI session via PTY."""
-
-    def __init__(self, session_id: str, profile: Optional[str] = None):
-        self.session_id = session_id
-        self.profile = profile
-        self.master_fd: Optional[int] = None
-        self.slave_fd: Optional[int] = None
-        self.process: Optional[subprocess.Popen] = None
-        self._buffer = ""
-        self._running = False
-        self._read_thread: Optional[threading.Thread] = None
-        self._callbacks: list[Callable[[str], None]] = []
-
-    def start(self) -> bool:
-        """Start hermes chat session in PTY."""
-        try:
-            # Create pseudo-terminal
-            self.master_fd, self.slave_fd = pty.openpty()
-
-            # Make master non-blocking
-            flags = fcntl.fcntl(self.master_fd, fcntl.F_GETFL)
-            fcntl.fcntl(self.master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-
-            # Build command
-            cmd = ["hermes", "chat"]
-            if self.profile:
-                cmd.extend(["--profile", self.profile])
-
-            # Start process
-            self.process = subprocess.Popen(
-                cmd,
-                stdin=self.slave_fd,
-                stdout=self.slave_fd,
-                stderr=self.slave_fd,
-                cwd=os.path.expanduser("~"),
-                start_new_session=True,
-            )
-
-            # Close slave in parent
-            os.close(self.slave_fd)
-            self.slave_fd = None
-
-            self._running = True
-
-            # Start reader thread
-            self._read_thread = threading.Thread(target=self._read_loop, daemon=True)
-            self._read_thread.start()
-
-            return True
-
-        except Exception as e:
-            self.cleanup()
-            raise ChatNotAvailableError(f"Failed to start CLI session: {e}")
-
-    def _read_loop(self) -> None:
-        """Read output from PTY."""
-        while self._running and self.master_fd is not None:
-            try:
-                # Check if data available
-                ready, _, _ = select.select([self.master_fd], [], [], 0.1)
-                if ready:
-                    data = os.read(self.master_fd, 4096).decode(
-                        "utf-8", errors="replace"
-                    )
-                    if data:
-                        self._buffer += data
-                        # Notify callbacks
-                        for cb in self._callbacks:
-                            try:
-                                cb(data)
-                            except Exception:
-                                pass
-            except (OSError, IOError):
-                break
-            except Exception:
-                continue
-
-    def send(self, message: str) -> bool:
-        """Send message to CLI."""
-        if not self._running or self.master_fd is None:
-            return False
-
-        try:
-            # Write message + newline
-            os.write(self.master_fd, (message + "\n").encode("utf-8"))
-            return True
-        except Exception:
-            return False
-
-    def on_output(self, callback: Callable[[str], None]) -> None:
-        """Register output callback."""
-        self._callbacks.append(callback)
-
-    def cleanup(self) -> None:
-        """Clean up resources."""
-        self._running = False
-
-        if self.process:
-            try:
-                self.process.terminate()
-                self.process.wait(timeout=2)
-            except Exception:
-                try:
-                    self.process.kill()
-                except Exception:
-                    pass
-            self.process = None
-
-        if self.master_fd is not None:
-            try:
-                os.close(self.master_fd)
-            except Exception:
-                pass
-            self.master_fd = None
-
-        if self.slave_fd is not None:
-            try:
-                os.close(self.slave_fd)
-            except Exception:
-                pass
-            self.slave_fd = None
-
-
 class ChatEngine:
-    """Main chat engine using CLI subprocess."""
+    """Chat engine using hermes CLI subprocess with -q (query) and -Q (quiet) flags."""
 
     _instance: Optional["ChatEngine"] = None
     _lock = threading.Lock()
@@ -169,17 +49,19 @@ class ChatEngine:
             return
 
         self._sessions: dict[str, ChatSession] = {}
-        self._cli_sessions: dict[str, CLISession] = {}
         self._streamers: dict[str, ChatStreamer] = {}
+        self._processes: dict[str, subprocess.Popen] = {}
         self._initialized = True
+        self._hermes_path = shutil.which("hermes")
         self._cli_available = self._check_cli()
 
-    @staticmethod
-    def _check_cli() -> bool:
+    def _check_cli(self) -> bool:
         """Check if hermes CLI is available."""
+        if not self._hermes_path:
+            return False
         try:
             result = subprocess.run(
-                ["hermes", "--version"], capture_output=True, timeout=5
+                [self._hermes_path, "--version"], capture_output=True, timeout=5
             )
             return result.returncode == 0
         except Exception:
@@ -200,19 +82,12 @@ class ChatEngine:
 
         session_id = str(uuid.uuid4())[:8]
 
-        # Create CLI session
-        cli_session = CLISession(session_id, profile)
-        if not cli_session.start():
-            raise ChatNotAvailableError("Failed to start CLI session")
-
-        self._cli_sessions[session_id] = cli_session
-
         session = ChatSession(
             id=session_id,
             profile=profile,
             model=model,
             title=f"Chat {session_id}",
-            backend_type="cli-pty",
+            backend_type="cli",
         )
         self._sessions[session_id] = session
 
@@ -231,10 +106,13 @@ class ChatEngine:
         if session_id in self._sessions:
             self._sessions[session_id].is_active = False
 
-            # Cleanup CLI session
-            if session_id in self._cli_sessions:
-                self._cli_sessions[session_id].cleanup()
-                del self._cli_sessions[session_id]
+            # Kill running process
+            if session_id in self._processes:
+                try:
+                    self._processes[session_id].kill()
+                except Exception:
+                    pass
+                del self._processes[session_id]
 
             # Cleanup streamer
             if session_id in self._streamers:
@@ -249,7 +127,7 @@ class ChatEngine:
         session_id: str,
         content: str,
     ) -> ChatStreamer:
-        """Send a message and return streamer for responses."""
+        """Send a message using hermes chat -q -Q and stream stdout."""
         session = self._sessions.get(session_id)
         if not session:
             raise ChatNotAvailableError(f"Session {session_id} not found")
@@ -257,9 +135,14 @@ class ChatEngine:
         if not session.is_active:
             raise ChatNotAvailableError(f"Session {session_id} is inactive")
 
-        cli_session = self._cli_sessions.get(session_id)
-        if not cli_session:
-            raise ChatNotAvailableError("CLI session not found")
+        # Clean up previous streamer/process
+        if session_id in self._streamers:
+            self._streamers[session_id].stop()
+        if session_id in self._processes:
+            try:
+                self._processes[session_id].kill()
+            except Exception:
+                pass
 
         streamer = ChatStreamer()
         self._streamers[session_id] = streamer
@@ -268,28 +151,78 @@ class ChatEngine:
         session.message_count += 1
         session.last_activity = datetime.now()
 
-        # Setup output handler
-        def handle_output(data: str) -> None:
-            # Parse and stream output
-            # For now, just emit raw tokens
-            # TODO: Parse structured output from CLI
-            for char in data:
-                streamer.emit_token(char)
+        # Build command: hermes chat -q "message" -Q (quiet mode)
+        cmd = [self._hermes_path, "chat", "-q", content, "-Q"]
+        if session.profile:
+            cmd.extend(["--profile", session.profile])
+        if session.model:
+            cmd.extend(["-m", session.model])
+        # Tag as tool source so it doesn't clutter user session list
+        cmd.extend(["--source", "tool"])
 
-        cli_session.on_output(handle_output)
+        def _is_decoration_line(line: str) -> bool:
+            """Check if a line is CLI decoration (box drawing, headers, session info)."""
+            stripped = line.strip().replace('\r', '')
+            if not stripped:
+                return False
+            if _SESSION_ID_RE.match(stripped):
+                return True
+            if _HEADER_RE.search(stripped):
+                return True
+            # Lines that are only box-drawing chars, spaces, and label text
+            if _BOX_DRAWING_RE.match(stripped):
+                return True
+            return False
 
-        # Send message
-        if cli_session.send(content):
-            # Mark done after a delay (since we can't detect end easily)
-            def delayed_done():
-                import time
+        def run_subprocess():
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    cwd=os.path.expanduser("~"),
+                )
+                self._processes[session_id] = process
 
-                time.sleep(0.5)  # Small delay to collect output
-                streamer.emit_done()
+                # Stream stdout line by line, filtering decoration
+                started_content = False
+                for line in iter(process.stdout.readline, b""):
+                    if streamer._stopped.is_set():
+                        break
+                    text = line.decode("utf-8", errors="replace")
 
-            threading.Thread(target=delayed_done, daemon=True).start()
-        else:
-            streamer.emit_error("Failed to send message")
+                    # Skip decoration lines
+                    if _is_decoration_line(text):
+                        continue
+
+                    # Skip leading empty lines before content starts
+                    if not started_content and not text.strip():
+                        continue
+
+                    started_content = True
+
+                    # Emit the line for streaming
+                    for char in text:
+                        streamer.emit_token(char)
+
+                process.wait()
+
+                # Check for errors
+                if process.returncode != 0:
+                    stderr = process.stderr.read().decode("utf-8", errors="replace")
+                    if stderr.strip():
+                        streamer.emit_error(f"CLI error: {stderr.strip()}")
+                    else:
+                        streamer.emit_done()
+                else:
+                    streamer.emit_done()
+
+            except Exception as e:
+                streamer.emit_error(f"Failed to run hermes: {e}")
+            finally:
+                self._processes.pop(session_id, None)
+
+        threading.Thread(target=run_subprocess, daemon=True).start()
 
         return streamer
 
@@ -302,7 +235,7 @@ class ChatEngine:
         return ComposerState(
             model=session.model or "claude-4-sonnet",
             is_streaming=session_id in self._streamers,
-            context_tokens=0,  # Would need to parse from CLI output
+            context_tokens=0,
         )
 
     def cleanup_all(self) -> None:

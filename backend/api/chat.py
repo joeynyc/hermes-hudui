@@ -112,7 +112,7 @@ async def end_session(session_id: str) -> dict[str, str]:
 
 @router.post("/sessions/{session_id}/send")
 async def send_message(session_id: str, request: SendMessageRequest) -> dict[str, str]:
-    """Send a message to a session (non-streaming acknowledgement)."""
+    """Send a message to a session."""
     session = chat_engine.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -120,9 +120,14 @@ async def send_message(session_id: str, request: SendMessageRequest) -> dict[str
     if not session.is_active:
         raise HTTPException(status_code=409, detail="Session is inactive")
 
-    # For non-streaming endpoint, just acknowledge
-    # The actual message is sent via the streaming endpoint
-    return {"status": "accepted", "session_id": session_id}
+    # Send message - this creates the streamer
+    try:
+        chat_engine.send_message(session_id, request.content)
+        return {"status": "accepted", "session_id": session_id}
+    except ChatNotAvailableError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/sessions/{session_id}/stream")
@@ -207,6 +212,8 @@ async def check_availability() -> dict[str, Any]:
     """Check if chat functionality is available."""
     from ..chat import TmuxChatFallback
 
+    cli_available = chat_engine.is_available()
+
     direct_import = False
     try:
         from run_agent import AIAgent
@@ -219,7 +226,8 @@ async def check_availability() -> dict[str, Any]:
     tmux_pane = TmuxChatFallback.find_hermes_pane() if tmux_available else None
 
     return {
-        "available": direct_import or (tmux_available and tmux_pane is not None),
+        "available": cli_available or direct_import or (tmux_available and tmux_pane is not None),
+        "cli_available": cli_available,
         "direct_import": direct_import,
         "tmux_available": tmux_available,
         "tmux_pane_found": tmux_pane is not None,
