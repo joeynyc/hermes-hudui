@@ -12,6 +12,13 @@ async function cronAction(jobId: string, action: string | null, method = 'POST')
   }
 }
 
+function jobTone(job: any) {
+  if (job.next_run_status === 'overdue' || job.has_failed) return 'var(--hud-warning)'
+  if (job.state === 'running') return 'var(--hud-accent)'
+  if (job.enabled && job.state === 'scheduled') return 'var(--hud-success)'
+  return 'var(--hud-text-dim)'
+}
+
 export default function CronPanel() {
   const { data, isLoading, mutate } = useApi('/cron', 30000)
   const [confirming, setConfirming] = useState<string | null>(null)
@@ -41,15 +48,31 @@ export default function CronPanel() {
     return <Panel title="Cron Jobs" className="col-span-full"><div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No cron jobs configured</div></Panel>
   }
 
+  const total = data?.total ?? jobs.length
+  const active = data?.active ?? jobs.filter((job: any) => job.enabled && job.state === 'scheduled').length
+  const overdue = data?.overdue ?? jobs.filter((job: any) => job.next_run_status === 'overdue').length
+  const running = data?.running ?? jobs.filter((job: any) => job.state === 'running').length
+  const neverRan = data?.never_ran ?? jobs.filter((job: any) => job.never_ran).length
+
   return (
-    <Panel title="Cron Jobs" className="col-span-full">
+    <Panel title={`Cron Jobs — ${active} scheduled, ${overdue} overdue`} className="col-span-full">
       {error && (
         <div className="mb-3 px-2 py-1.5 text-[12px]" style={{ color: 'var(--hud-error)', background: 'var(--hud-bg-surface)' }}>
           {error}
         </div>
       )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3 text-[13px]">
+        <div className="p-2" style={{ background: 'var(--hud-bg-panel)' }}><span className="font-bold">{total}</span> total</div>
+        <div className="p-2" style={{ background: 'var(--hud-bg-panel)' }}><span className="font-bold" style={{ color: 'var(--hud-success)' }}>{active}</span> scheduled</div>
+        <div className="p-2" style={{ background: 'var(--hud-bg-panel)' }}><span className="font-bold" style={{ color: 'var(--hud-warning)' }}>{overdue}</span> overdue</div>
+        <div className="p-2" style={{ background: 'var(--hud-bg-panel)' }}><span className="font-bold" style={{ color: 'var(--hud-accent)' }}>{running}</span> running</div>
+        <div className="p-2" style={{ background: 'var(--hud-bg-panel)' }}><span className="font-bold" style={{ color: 'var(--hud-text-dim)' }}>{neverRan}</span> never-ran</div>
+      </div>
+
       <div className="space-y-3">
         {jobs.map((job: any) => {
+          const tone = jobTone(job)
           const isPaused = job.state === 'paused'
           const isCompleted = job.state === 'completed'
           const isActive = job.enabled && !isPaused && !isCompleted
@@ -57,22 +80,20 @@ export default function CronPanel() {
           const isConfirming = confirming === job.id
 
           return (
-            <div key={job.id} className="p-3" style={{ background: 'var(--hud-bg-panel)', border: '1px solid var(--hud-border)' }}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-2 h-2 rounded-full shrink-0"
-                  style={{ background: isActive ? 'var(--hud-success)' : 'var(--hud-text-dim)' }} />
+            <div key={job.id} className="p-3" style={{ background: 'var(--hud-bg-panel)', border: '1px solid var(--hud-border)', borderLeft: `3px solid ${tone}` }}>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: tone }} />
                 <span className="font-bold text-[13px]" style={{ color: 'var(--hud-primary)' }}>
                   {job.name || job.id}
                 </span>
-                <span className="text-[13px] px-1.5 py-0.5"
-                  style={{
-                    background: 'var(--hud-bg-hover)',
-                    color: isActive ? 'var(--hud-success)' : 'var(--hud-text-dim)'
-                  }}>
+                {job.never_ran && <span style={{ color: 'var(--hud-text-dim)' }}>never ran</span>}
+                {job.next_run_status === 'overdue' && <span style={{ color: 'var(--hud-warning)' }}>overdue</span>}
+                {job.has_failed && <span style={{ color: 'var(--hud-error)' }}>failed</span>}
+                <span className="text-[13px] px-1.5 py-0.5 ml-auto" style={{ background: 'var(--hud-bg-hover)', color: tone }}>
                   {job.state || 'unknown'}
                 </span>
 
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5">
                   {!isCompleted && (
                     isPaused ? (
                       <button
@@ -113,7 +134,7 @@ export default function CronPanel() {
                         className="px-2 py-0.5 text-[11px] cursor-pointer disabled:opacity-40"
                         style={{ background: 'var(--hud-error)', color: 'var(--hud-bg-deep)' }}
                       >
-                        {isBusy('delete') ? '...' : 'Confirm'}
+                        {busy === `${job.id}:null` ? '...' : 'Confirm'}
                       </button>
                       <button
                         onClick={() => setConfirming(null)}
@@ -144,7 +165,7 @@ export default function CronPanel() {
                 <div>
                   <div className="uppercase tracking-wider" style={{ color: 'var(--hud-text-dim)', fontSize: '10px' }}>Last Run</div>
                   <div>
-                    {timeAgo(job.last_run_at)}
+                    {job.last_run_at ? timeAgo(job.last_run_at) : 'never'}
                     {job.last_status && (
                       <span className="ml-1" style={{ color: job.last_status === 'ok' ? 'var(--hud-success)' : 'var(--hud-error)' }}>
                         {job.last_status === 'ok' ? '✔' : '✗'}
@@ -154,11 +175,17 @@ export default function CronPanel() {
                 </div>
                 <div>
                   <div className="uppercase tracking-wider" style={{ color: 'var(--hud-text-dim)', fontSize: '10px' }}>Next Run</div>
-                  <div>{job.next_run_at ? new Date(job.next_run_at).toLocaleString() : '-'}</div>
+                  <div style={{ color: job.next_run_status === 'overdue' ? 'var(--hud-warning)' : undefined }}>
+                    {job.next_run_at
+                      ? (job.next_run_status === 'overdue'
+                          ? `OVERDUE · ${timeAgo(job.next_run_at)}`
+                          : new Date(job.next_run_at).toLocaleString())
+                      : '-'}
+                  </div>
                 </div>
                 <div>
                   <div className="uppercase tracking-wider" style={{ color: 'var(--hud-text-dim)', fontSize: '10px' }}>Deliver</div>
-                  <div style={{ color: 'var(--hud-accent)' }}>{job.deliver || '-'}</div>
+                  <div style={{ color: isActive ? 'var(--hud-accent)' : 'var(--hud-text-dim)' }}>{job.deliver || '-'}</div>
                 </div>
               </div>
 
@@ -166,6 +193,12 @@ export default function CronPanel() {
                 <div className="mt-2 text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>
                   Runs completed: {job.repeat_completed}{job.repeat_total ? ` / ${job.repeat_total}` : ''}
                   {job.skills?.length > 0 && <span className="ml-2">Skills: {job.skills.join(', ')}</span>}
+                </div>
+              )}
+
+              {(job.last_error || job.last_delivery_error) && (
+                <div className="mt-2 text-[13px]" style={{ color: 'var(--hud-error)' }}>
+                  {job.last_error || job.last_delivery_error}
                 </div>
               )}
 

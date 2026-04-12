@@ -2,15 +2,20 @@ import { useState, useCallback } from 'react'
 import { useApi } from '../hooks/useApi'
 import Panel, { Sparkline } from './Panel'
 import MessageBubble from './chat/MessageBubble'
+import { formatTokens } from '../lib/utils'
+
+const SOURCE_COLORS: Record<string, string> = {
+  cli: 'var(--hud-success)',
+  telegram: 'var(--hud-secondary)',
+  cron: 'var(--hud-warning)',
+}
 
 function sourceColor(source: string) {
-  return source === 'telegram' ? 'var(--hud-accent)' : 'var(--hud-primary)'
+  return SOURCE_COLORS[source] || 'var(--hud-primary)'
 }
 
 const hoverOn = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'var(--hud-bg-hover)' }
 const hoverOff = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'transparent' }
-
-// ── Transcript viewer ──────────────────────────────────────────────────────────
 
 function TranscriptViewer({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
   const { data, isLoading } = useApi(`/sessions/${sessionId}/messages`, 0)
@@ -26,11 +31,7 @@ function TranscriptViewer({ sessionId, onClose }: { sessionId: string; onClose: 
           boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
         }}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-4 py-2 shrink-0 border-b"
-          style={{ borderColor: 'var(--hud-border)' }}
-        >
+        <div className="flex items-center justify-between px-4 py-2 shrink-0 border-b" style={{ borderColor: 'var(--hud-border)' }}>
           <div>
             <span className="text-[13px] uppercase tracking-widest" style={{ color: 'var(--hud-primary)' }}>
               {data?.title || sessionId.slice(0, 8)}
@@ -41,16 +42,11 @@ function TranscriptViewer({ sessionId, onClose }: { sessionId: string; onClose: 
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="text-[13px] px-2 py-0.5 cursor-pointer"
-            style={{ color: 'var(--hud-text-dim)' }}
-          >
+          <button onClick={onClose} className="text-[13px] px-2 py-0.5 cursor-pointer" style={{ color: 'var(--hud-text-dim)' }}>
             ✕ Close
           </button>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {isLoading && (
             <div className="text-[13px] animate-pulse" style={{ color: 'var(--hud-text-dim)' }}>
@@ -78,8 +74,6 @@ function TranscriptViewer({ sessionId, onClose }: { sessionId: string; onClose: 
   )
 }
 
-// ── Search results ─────────────────────────────────────────────────────────────
-
 function SearchResults({ query, onSelect }: { query: string; onSelect: (id: string) => void }) {
   const { data, isLoading } = useApi(`/sessions/search?q=${encodeURIComponent(query)}`, 0)
 
@@ -88,7 +82,6 @@ function SearchResults({ query, onSelect }: { query: string; onSelect: (id: stri
   }
 
   const results = data || []
-
   if (!results.length) {
     return <div className="text-[13px] py-2" style={{ color: 'var(--hud-text-dim)' }}>No results for "{query}"</div>
   }
@@ -100,18 +93,12 @@ function SearchResults({ query, onSelect }: { query: string; onSelect: (id: stri
           key={r.session_id}
           onClick={() => onSelect(r.session_id)}
           className="w-full text-left px-2 py-1.5 text-[13px] cursor-pointer"
-          style={{
-            borderBottom: '1px solid var(--hud-border)',
-            background: 'transparent',
-          }}
+          style={{ borderBottom: '1px solid var(--hud-border)', background: 'transparent' }}
           onMouseEnter={hoverOn}
           onMouseLeave={hoverOff}
         >
           <div className="flex items-center gap-2">
-            <span
-              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-              style={{ background: sourceColor(r.source) }}
-            />
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: sourceColor(r.source) }} />
             <span className="flex-1 truncate">{r.title}</span>
             <span className="text-[11px] shrink-0" style={{ color: 'var(--hud-text-dim)' }}>
               {r.match_type === 'content' ? 'content' : 'title'}
@@ -127,8 +114,6 @@ function SearchResults({ query, onSelect }: { query: string; onSelect: (id: stri
     </div>
   )
 }
-
-// ── Main panel ─────────────────────────────────────────────────────────────────
 
 export default function SessionsPanel() {
   const { data, isLoading } = useApi('/sessions', 30000)
@@ -155,32 +140,35 @@ export default function SessionsPanel() {
   const bySource = data.by_source || {}
   const dailyMessages = dailyStats.map((d: any) => d.messages)
   const dailySessions = dailyStats.map((d: any) => d.sessions)
-
   const showSearch = submittedQuery.length > 0
 
   return (
     <>
-      {/* Transcript modal */}
       {activeTranscript && (
-        <TranscriptViewer
-          sessionId={activeTranscript}
-          onClose={() => setActiveTranscript(null)}
-        />
+        <TranscriptViewer sessionId={activeTranscript} onClose={() => setActiveTranscript(null)} />
       )}
 
       <Panel title="Session Activity" className="col-span-2">
-        <div className="flex gap-6 mb-3 text-[13px]">
+        <div className="flex gap-6 mb-3 text-[13px] flex-wrap">
           <div>
             <span className="stat-value text-base">{data.total_sessions || 0}</span>
             <span className="stat-label ml-1">sessions</span>
+          </div>
+          <div>
+            <span className="stat-value text-base">{data.active_sessions_count || 0}</span>
+            <span className="stat-label ml-1">in flight</span>
           </div>
           <div>
             <span className="stat-value text-base">{(data.total_messages || 0).toLocaleString()}</span>
             <span className="stat-label ml-1">messages</span>
           </div>
           <div>
-            <span className="stat-value text-base">{(data.total_tokens || 0).toLocaleString()}</span>
-            <span className="stat-label ml-1">tokens</span>
+            <span className="stat-value text-base">{formatTokens(data.total_tokens || 0)}</span>
+            <span className="stat-label ml-1">in/out tok</span>
+          </div>
+          <div>
+            <span className="stat-value text-base">{formatTokens(data.total_full_tokens || 0)}</span>
+            <span className="stat-label ml-1">full footprint</span>
           </div>
           {Object.entries(bySource).map(([src, count]: any) => (
             <div key={src}>
@@ -199,8 +187,7 @@ export default function SessionsPanel() {
         </div>
       </Panel>
 
-      <Panel title="Recent Sessions">
-        {/* Search bar */}
+      <Panel title={`Recent Sessions — ${data.active_sessions_count || 0} in flight`}>
         <form onSubmit={handleSearch} className="flex gap-1 mb-2">
           <input
             type="text"
@@ -235,27 +222,39 @@ export default function SessionsPanel() {
           )}
         </form>
 
-        {/* Search results or session list */}
         {showSearch ? (
           <SearchResults query={submittedQuery} onSelect={id => { setActiveTranscript(id); handleClearSearch() }} />
         ) : (
-          <div className="space-y-0.5 text-[13px]">
+          <div className="space-y-1 text-[13px]">
             {sessions.slice(0, 15).map((s: any) => (
               <button
                 key={s.id}
                 onClick={() => setActiveTranscript(s.id)}
-                className="w-full flex items-center gap-2 py-0.5 text-left cursor-pointer"
-                style={{ borderBottom: '1px solid var(--hud-border)', background: 'transparent' }}
+                className="w-full text-left p-2 cursor-pointer"
+                style={{
+                  background: 'var(--hud-bg-panel)',
+                  border: '1px solid var(--hud-border)',
+                  borderLeft: `3px solid ${s.in_flight ? 'var(--hud-warning)' : sourceColor(s.source)}`,
+                }}
                 onMouseEnter={hoverOn}
                 onMouseLeave={hoverOff}
                 title="Click to read transcript"
               >
-                <span className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ background: sourceColor(s.source) }} />
-                <span className="flex-1 truncate">{s.title || s.id.slice(0, 8)}</span>
-                <span className="tabular-nums" style={{ color: 'var(--hud-text-dim)' }}>
-                  {s.message_count}m {s.tool_call_count}t
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sourceColor(s.source) }} />
+                  <span className="font-bold truncate">{s.title || s.id.slice(0, 8)}</span>
+                  <span style={{ color: 'var(--hud-text-dim)' }}>{s.source}</span>
+                  {s.model && <span style={{ color: 'var(--hud-accent)' }}>{s.model}</span>}
+                  <span style={{ color: s.in_flight ? 'var(--hud-warning)' : 'var(--hud-text-dim)' }}>
+                    {s.in_flight ? 'in flight' : 'completed'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap mt-0.5" style={{ color: 'var(--hud-text-dim)' }}>
+                  <span>{s.message_count || 0}m {(s.tool_call_count || 0)}t</span>
+                  <span>{formatTokens(s.total_tokens || 0)} in/out</span>
+                  <span>{formatTokens(s.full_token_footprint || 0)} full</span>
+                  <span>{s.started_at ? new Date(s.started_at).toLocaleString() : '-'}</span>
+                </div>
               </button>
             ))}
           </div>

@@ -29,6 +29,7 @@ from .api import (
     snapshots,
     dashboard,
     token_costs,
+    artplex,
     cache,
     chat,
 )
@@ -43,14 +44,12 @@ STATIC_DIR = Path(__file__).parent / "static"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan: start/stop file watcher."""
-    # Startup
     hermes_dir = os.environ.get("HERMES_HOME") or os.path.expanduser("~/.hermes")
     await start_watcher(hermes_dir)
     logger.info(f"Hermes HUD started, watching {hermes_dir}")
 
     yield
 
-    # Shutdown
     await stop_watcher()
     logger.info("Hermes HUD stopped")
 
@@ -75,9 +74,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive, handle ping/pong
             data = await websocket.receive_text()
-            # Echo back for heartbeat/ping
             if data == "ping":
                 await websocket.send_text("pong")
     except Exception:
@@ -86,7 +83,6 @@ async def websocket_endpoint(websocket: WebSocket):
         await ws_manager.disconnect(websocket)
 
 
-# API routes
 app.include_router(state.router, prefix="/api")
 app.include_router(memory.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
@@ -102,10 +98,10 @@ app.include_router(timeline.router, prefix="/api")
 app.include_router(snapshots.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(token_costs.router, prefix="/api")
+app.include_router(artplex.router, prefix="/api")
 app.include_router(cache.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 
-# Serve frontend static files (after API routes so /api takes priority)
 if STATIC_DIR.exists():
     app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 

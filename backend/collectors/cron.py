@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import json
-import os
 
-from .utils import default_hermes_dir
+from .utils import default_hermes_dir, parse_timestamp
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -33,6 +32,34 @@ class CronJob:
     skills: list[str] = field(default_factory=list)
     paused_reason: Optional[str] = None
 
+    @property
+    def next_run_overdue(self) -> bool:
+        if not (self.enabled and self.state == "scheduled" and self.next_run_at):
+            return False
+        next_run_dt = parse_timestamp(self.next_run_at)
+        if next_run_dt is None:
+            return False
+        now = datetime.now(next_run_dt.tzinfo) if next_run_dt.tzinfo else datetime.now()
+        return next_run_dt < now
+
+    @property
+    def next_run_status(self) -> str:
+        if self.next_run_overdue:
+            return "overdue"
+        return self.state or "unknown"
+
+    @property
+    def never_ran(self) -> bool:
+        return not bool(self.last_run_at)
+
+    @property
+    def is_running(self) -> bool:
+        return self.state == 'running'
+
+    @property
+    def has_failed(self) -> bool:
+        return bool(self.last_error) or self.last_status in {'error', 'failed'}
+
 
 @dataclass
 class CronState:
@@ -53,12 +80,28 @@ class CronState:
         return sum(1 for j in self.jobs if not j.enabled or j.state == "paused")
 
     @property
+    def running(self) -> int:
+        return sum(1 for j in self.jobs if j.is_running)
+
+    @property
+    def overdue(self) -> int:
+        return sum(1 for j in self.jobs if j.next_run_overdue)
+
+    @property
+    def never_ran(self) -> int:
+        return sum(1 for j in self.jobs if j.never_ran)
+
+    @property
+    def failed(self) -> int:
+        return sum(1 for j in self.jobs if j.has_failed)
+
+    @property
     def has_errors(self) -> bool:
-        return any(j.last_error for j in self.jobs)
+        return self.failed > 0
+
 
 
 def collect_cron(hermes_dir: str | None = None) -> CronState:
-    """Collect cron job data from jobs.json."""
     if hermes_dir is None:
         hermes_dir = default_hermes_dir(hermes_dir)
 

@@ -3,6 +3,7 @@ import { useTheme, THEMES } from '../hooks/useTheme'
 
 export const TABS = [
   { id: 'dashboard', label: 'Dashboard', key: '1' },
+  { id: 'artplex', label: 'Artplex', key: 'A' },
   { id: 'memory', label: 'Memory', key: '2' },
   { id: 'skills', label: 'Skills', key: '3' },
   { id: 'sessions', label: 'Sessions', key: '4' },
@@ -12,7 +13,7 @@ export const TABS = [
   { id: 'agents', label: 'Agents', key: '8' },
   { id: 'chat', label: 'Chat', key: '9' },
   { id: 'profiles', label: 'Profiles', key: '0' },
-  { id: 'token-costs', label: 'Costs', key: null },  // Click only, no hotkey
+  { id: 'token-costs', label: 'Costs', key: null },
   { id: 'corrections', label: 'Corrections', key: null },
   { id: 'patterns', label: 'Patterns', key: null },
 ] as const
@@ -34,28 +35,18 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
     return () => clearInterval(t)
   }, [])
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
       if (e.metaKey || e.ctrlKey || e.altKey) return
 
-      // 1-9 for tabs (only tabs with numeric keys)
-      const num = parseInt(e.key)
-      if (!isNaN(num) && num >= 1 && num <= 9) {
-        const tab = TABS.find(t => t.key === String(num))
-        if (tab) {
-          onTabChange(tab.id)
-          return
-        }
-      }
-      // 0 for Profiles (10th tab with key '0')
-      if (e.key === '0') {
-        onTabChange('profiles')
+      const pressed = e.key.toLowerCase()
+      const matchedTab = TABS.find(tab => tab.key && tab.key.toLowerCase() === pressed)
+      if (matchedTab) {
+        onTabChange(matchedTab.id)
         return
       }
-      // T to toggle theme picker
       if (e.key === 't') {
         setShowThemePicker(p => !p)
       }
@@ -65,13 +56,9 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
   }, [onTabChange])
 
   return (
-    <div className="flex items-center gap-1 px-3 py-1.5 border-b"
-         style={{ borderColor: 'var(--hud-border)', background: 'var(--hud-bg-surface)' }}>
-      {/* Logo */}
-      <span className="gradient-text font-bold text-[13px] mr-3 tracking-wider cursor-pointer shrink-0"
-            onClick={() => onTabChange('dashboard')}>☤ HERMES</span>
+    <div className="flex items-center gap-1 px-3 py-1.5 border-b" style={{ borderColor: 'var(--hud-border)', background: 'var(--hud-bg-surface)' }}>
+      <span className="gradient-text font-bold text-[13px] mr-3 tracking-wider cursor-pointer shrink-0" onClick={() => onTabChange('dashboard')}>☤ HERMES</span>
 
-      {/* Tabs */}
       <div className="flex gap-0.5 flex-1 overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
         {TABS.map(tab => (
           <button
@@ -92,7 +79,6 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
         ))}
       </div>
 
-      {/* Theme picker */}
       <div className="relative shrink-0">
         <button
           onClick={() => setShowThemePicker(p => !p)}
@@ -103,8 +89,7 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
           ◆
         </button>
         {showThemePicker && (
-          <div className="absolute right-0 top-full mt-1 z-50 py-1 min-w-[180px]"
-               style={{ background: 'var(--hud-bg-panel)', border: '1px solid var(--hud-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+          <div className="absolute right-0 top-full mt-1 z-50 py-1 min-w-[180px]" style={{ background: 'var(--hud-bg-panel)', border: '1px solid var(--hud-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
             {THEMES.map(t => (
               <button
                 key={t.id}
@@ -131,7 +116,6 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
         )}
       </div>
 
-      {/* Clock */}
       <span className="text-[13px] ml-2 tabular-nums shrink-0 hidden sm:inline" style={{ color: 'var(--hud-text-dim)' }}>
         {time.toLocaleTimeString('en-US', { hour12: false })}
       </span>

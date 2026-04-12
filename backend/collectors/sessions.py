@@ -56,7 +56,8 @@ def _do_collect_sessions(db_path: str) -> SessionsState:
                    message_count, tool_call_count,
                    input_tokens, output_tokens,
                    cache_read_tokens, cache_write_tokens,
-                   reasoning_tokens, estimated_cost_usd, model_config
+                   reasoning_tokens, estimated_cost_usd,
+                   model, model_config
             FROM sessions
             WHERE source != 'tool'
             ORDER BY started_at DESC
@@ -69,15 +70,15 @@ def _do_collect_sessions(db_path: str) -> SessionsState:
                 ended_raw = safe_get(row, "ended_at")
                 ended = datetime.fromtimestamp(ended_raw) if ended_raw else None
 
-                # Try to extract model from model_config JSON
-                model = None
-                mc_raw = safe_get(row, "model_config")
-                if mc_raw:
-                    try:
-                        mc = json.loads(mc_raw)
-                        model = mc.get("model") or mc.get("default")
-                    except (json.JSONDecodeError, TypeError):
-                        pass
+                model = safe_get(row, "model")
+                if not model:
+                    mc_raw = safe_get(row, "model_config")
+                    if mc_raw:
+                        try:
+                            mc = json.loads(mc_raw)
+                            model = mc.get("model") or mc.get("default")
+                        except (json.JSONDecodeError, TypeError):
+                            pass
 
                 sessions.append(
                     SessionInfo(

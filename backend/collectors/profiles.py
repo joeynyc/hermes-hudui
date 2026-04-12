@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -122,6 +123,7 @@ def _read_session_stats(profile_dir: Path) -> dict:
         "total_in" + "put_tok" + "ens": 0,
         "total_out" + "put_tok" + "ens": 0,
         "last_active": None,
+        "active_session_count": 0,
     }
     db_path = profile_dir / "state.db"
     if not db_path.exists():
@@ -139,7 +141,8 @@ def _read_session_stats(profile_dir: Path) -> dict:
                 COALESCE(SUM(tool_call_count), 0),
                 COALESCE(SUM({in_field}), 0),
                 COALESCE(SUM({out_field}), 0),
-                MAX(started_at)
+                MAX(started_at),
+                COALESCE(SUM(CASE WHEN ended_at IS NULL THEN 1 ELSE 0 END), 0)
             FROM sessions
         """
         cur.execute(query)
@@ -156,6 +159,7 @@ def _read_session_stats(profile_dir: Path) -> dict:
                     stats["last_active"] = datetime.fromtimestamp(float(last_raw))
                 except (ValueError, TypeError, OSError):
                     pass
+            stats["active_session_count"] = safe_get(row, 6, 0)
         conn.close()
     except Exception:
         pass
@@ -207,6 +211,8 @@ def _read_api_keys(profile_dir: Path) -> list[str]:
 
 def _check_gateway_status(profile_name: str) -> str:
     """Check systemd gateway service status."""
+    if sys.platform == "darwin":
+        return "n/a"
     service = (
         f"hermes-gateway-{profile_name}"
         if profile_name != "default"
@@ -225,6 +231,8 @@ def _check_gateway_status(profile_name: str) -> str:
         elif status == "inactive":
             return "inactive"
         return "unknown"
+    except FileNotFoundError:
+        return "n/a"
     except Exception:
         return "unknown"
 
@@ -242,9 +250,27 @@ def _check_server_status(base_url: str) -> str:
         return "stopped"
 
 
+def _derive_activity_status(sess_stats: dict, gateway: str, server: str) -> tuple[str, str]:
+    active_sessions = int(sess_stats.get("active_session_count", 0) or 0)
+    last_active = sess_stats.get("last_active")
+    if gateway == "active":
+        return "active", "gateway active"
+    if server == "running":
+        return "active", "local server running"
+    if active_sessions > 0:
+        return "active", f"{active_sessions} in-flight sessions"
+    if isinstance(last_active, datetime):
+        minutes = (datetime.now() - last_active).total_seconds() / 60
+        if minutes <= 15:
+            return "active", "recent session activity"
+        return "idle", f"last activity {int(minutes)}m ago"
+    return "idle", "no recent activity"
+
+
 def _collect_single_profile(
     profile_dir: Path, name: str, is_default: bool = False
 ) -> ProfileInfo:
+
     """Collect all data for a single profile."""
     config = _read_config(profile_dir)
 
@@ -306,6 +332,7 @@ def _collect_single_profile(
     api_keys = _read_api_keys(profile_dir)
     gateway = _check_gateway_status(name)
     server = _check_server_status(base_url)
+    activity_status, activity_reason = _derive_activity_status(sess_stats, gateway, server)
     try:
         port = urlparse(base_url).port if base_url else None
     except Exception:
@@ -337,6 +364,9 @@ def _collect_single_profile(
         total_input_tokens=sess_stats[in_key],
         total_output_tokens=sess_stats[out_key],
         last_active=sess_stats["last_active"],
+        active_session_count=sess_stats["active_session_count"],
+        activity_status=activity_status,
+        activity_reason=activity_reason,
         memory_entries=mem_stats["memory_entries"],
         memory_chars=mem_stats["memory_chars"],
         memory_max_chars=mem_max,

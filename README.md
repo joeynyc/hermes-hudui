@@ -28,7 +28,7 @@ source venv/bin/activate && hermes-hudui
 
 ## What's Inside
 
-13 tabs covering everything your agent knows about itself — identity, memory, skills, sessions, cron jobs, projects, health, costs, patterns, corrections, and live chat.
+14 tabs covering everything your agent knows about itself — identity, memory, skills, sessions, cron jobs, projects, health, costs, patterns, corrections, live chat, and an ARTPLEX operator view.
 
 Updates in real-time via WebSocket. No manual refresh needed.
 
@@ -40,15 +40,39 @@ Four themes switchable with `t`: **Neural Awakening** (cyan), **Blade Runner** (
 
 | Key | Action |
 |-----|--------|
-| `1`–`9`, `0` | Switch tabs |
+| `1`–`9`, `0` | Switch core tabs |
+| `a` | Open ARTPLEX |
 | `t` | Theme picker |
 | `Ctrl+K` | Command palette |
+
+## Architecture
+
+```
+React Frontend (Vite + SWR)
+    ↓ /api/*
+FastAPI Backend (Python)
+    ↓ collectors/*.py
+~/.hermes/ (agent data files)
+```
+
+Backend collectors read directly from `~/.hermes/` and return dataclasses. The frontend fetches from `/api/*` endpoints and renders one panel component per tab.
+
+## Token Cost Pricing
+
+The HUD now distinguishes:
+- actual tracked billing
+- stored estimates
+- fallback estimates for legacy rows
+- subscription-included usage
+- hypothetical API-equivalent replay
+
+Unknown or unpriced models are surfaced honestly instead of receiving fake fallback prices.
 
 ## Relationship to the TUI
 
 This is the browser companion to [hermes-hud](https://github.com/joeynyc/hermes-hud). Both read from the same `~/.hermes/` data directory independently — use either one, or both at the same time.
 
-The Web UI is fully standalone and adds features the TUI doesn't have: dedicated Memory, Skills, and Sessions tabs; per-model token cost tracking; command palette; live chat; theme switcher.
+The Web UI is fully standalone and adds features the TUI doesn't have: dedicated Memory, Skills, Sessions, Costs, and ARTPLEX tabs; per-model token cost tracking; command palette; live chat; theme switcher.
 
 If you also have the TUI installed, you can enable it with `pip install hermes-hudui[tui]`.
 

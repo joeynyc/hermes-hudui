@@ -22,12 +22,11 @@ export default function AgentsPanel() {
   const recentSessions = data.recent_sessions || []
   const alerts = data.operator_alerts || []
   const tmuxPanes = data.tmux_panes || []
+  const inFlightCount = recentSessions.filter((s: any) => s.in_flight).length
 
   return (
     <>
-      {/* Live processes */}
       <Panel title={`Live Agents — ${data.live_count} live, ${idle.length} idle`}>
-        {/* Operator alerts */}
         {alerts.length > 0 && (
           <div className="mb-3">
             <div className="text-[13px] font-bold mb-1" style={{ color: 'var(--hud-warning)' }}>
@@ -45,11 +44,10 @@ export default function AgentsPanel() {
           </div>
         )}
 
-        {/* Live agents */}
         <div className="space-y-2">
           {live.map((proc: any, i: number) => (
             <div key={`${proc.name}-${proc.pid}-${i}`} className="p-2" style={{ background: 'var(--hud-bg-panel)', borderLeft: '3px solid var(--hud-success)' }}>
-              <div className="flex items-center gap-2 text-[13px]">
+              <div className="flex items-center gap-2 text-[13px] flex-wrap">
                 <span style={{ color: 'var(--hud-success)' }}>▸</span>
                 <span className="font-bold">{proc.name}</span>
                 {proc.pid && <span className="text-[13px] tabular-nums" style={{ color: 'var(--hud-text-dim)' }}>[{proc.pid}]</span>}
@@ -67,7 +65,6 @@ export default function AgentsPanel() {
             </div>
           ))}
 
-          {/* Idle agents */}
           {idle.length > 0 && (
             <div className="text-[13px] mt-2">
               <div className="text-[13px] uppercase tracking-wider mb-1" style={{ color: 'var(--hud-text-dim)' }}>Not running</div>
@@ -82,7 +79,6 @@ export default function AgentsPanel() {
           )}
         </div>
 
-        {/* tmux panes if present */}
         {data.has_tmux && tmuxPanes.length > 0 && (
           <div className="mt-3 text-[13px]">
             <div className="uppercase tracking-wider mb-1" style={{ color: 'var(--hud-text-dim)' }}>
@@ -97,28 +93,28 @@ export default function AgentsPanel() {
         )}
       </Panel>
 
-      {/* Recent sessions */}
-      <Panel title={`Recent Activity — last ${recentSessions.length} sessions`}>
-        <div className="space-y-0.5">
+      <Panel title={`Recent Activity — ${inFlightCount} in flight`}>
+        <div className="space-y-1">
           {recentSessions.map((sess: any, i: number) => {
             const style = SOURCE_STYLES[sess.source] || { color: 'var(--hud-text-dim)', label: sess.source }
             return (
-              <div key={sess.session_id || i} className="flex items-center gap-2 py-1 text-[13px]"
-                style={{ borderBottom: '1px solid var(--hud-border)' }}>
-                <span className="text-[13px] tabular-nums w-[80px] flex-shrink-0" style={{ color: 'var(--hud-text-dim)' }}>
-                  {sess.started_at ? `${sess.started_at.slice(5, 10)} ${sess.started_at.slice(11, 16)}` : ''}
-                </span>
-                <span className="px-1.5 py-0.5 text-[13px] flex-shrink-0" style={{ background: 'var(--hud-bg-panel)', color: style.color }}>
-                  {style.label}
-                </span>
-                <span className="truncate flex-1">
-                  {sess.title || 'untitled'}
-                </span>
-                <span className="text-[13px] flex-shrink-0 tabular-nums" style={{ color: 'var(--hud-text-dim)' }}>
-                  {sess.message_count}m
-                  {sess.tool_call_count > 0 && <> {sess.tool_call_count}t</>}
-                  {sess.duration_minutes && <span className="ml-1">{formatDur(sess.duration_minutes)}</span>}
-                </span>
+              <div key={sess.session_id || i} className="p-2 text-[13px]" style={{ background: 'var(--hud-bg-panel)', borderLeft: `3px solid ${sess.in_flight ? 'var(--hud-warning)' : style.color}` }}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-1.5 py-0.5 text-[13px] flex-shrink-0" style={{ background: 'var(--hud-bg-hover)', color: style.color }}>
+                    {style.label}
+                  </span>
+                  <span className="truncate flex-1 font-bold">{sess.title || 'untitled'}</span>
+                  {sess.model && <span style={{ color: 'var(--hud-accent)' }}>{sess.model}</span>}
+                  <span style={{ color: sess.in_flight ? 'var(--hud-warning)' : 'var(--hud-text-dim)' }}>
+                    {sess.in_flight ? 'in flight' : 'completed'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap mt-0.5" style={{ color: 'var(--hud-text-dim)' }}>
+                  <span>{sess.started_at ? `${sess.started_at.slice(5, 10)} ${sess.started_at.slice(11, 16)}` : ''}</span>
+                  <span>{sess.message_count}m</span>
+                  {sess.tool_call_count > 0 && <span>{sess.tool_call_count}t</span>}
+                  {sess.duration_minutes && <span>{formatDur(sess.duration_minutes)}</span>}
+                </div>
               </div>
             )
           })}

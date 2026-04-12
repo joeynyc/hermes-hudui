@@ -40,10 +40,15 @@ class RecentSession:
     source: str         # cli, telegram, cron
     title: Optional[str] = None
     started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
     message_count: int = 0
     tool_call_count: int = 0
     model: Optional[str] = None
     duration_minutes: Optional[float] = None
+
+    @property
+    def in_flight(self) -> bool:
+        return self.ended_at is None
 
 
 @dataclass
@@ -518,6 +523,7 @@ def _get_recent_sessions(hermes_dir: str, limit: int = 10) -> list[RecentSession
                     source=safe_get(row, "source", "unknown"),
                     title=safe_get(row, "title"),
                     started_at=started,
+                    ended_at=ended,
                     message_count=safe_get(row, "msg_count", 0),
                     tool_call_count=safe_get(row, "tool_count", 0),
                     model=safe_get(row, "model"),
