@@ -1,5 +1,6 @@
 import { useApi } from '../hooks/useApi'
 import Panel from './Panel'
+import { useLocale } from '../lib/i18n'
 
 const SEVERITY: Record<string, { color: string; icon: string }> = {
   critical: { color: 'var(--hud-error)', icon: '⚠' },
@@ -8,11 +9,12 @@ const SEVERITY: Record<string, { color: string; icon: string }> = {
 }
 
 export default function CorrectionsPanel() {
+  const { t } = useLocale()
   const { data, isLoading } = useApi('/corrections', 60000)
 
   // Only show loading on initial load
   if (isLoading && !data) {
-    return <Panel title="Corrections" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
+    return <Panel title={t('corrections.correctionsLessons')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('corrections.loading')}</div></Panel>
   }
 
   const corrections = data.corrections || []
@@ -24,7 +26,7 @@ export default function CorrectionsPanel() {
   }
 
   return (
-    <Panel title={`Corrections & Lessons Learned — ${corrections.length} total`} className="col-span-full">
+    <Panel title={`${t('corrections.correctionsLessons')} — ${corrections.length} ${t('corrections.total')}`} className="col-span-full">
       {/* Summary */}
       <div className="flex gap-4 text-[13px] mb-3">
         {['critical', 'major', 'minor'].map(sev => {
@@ -38,14 +40,14 @@ export default function CorrectionsPanel() {
           )
         })}
         {corrections.length === 0 && (
-          <span style={{ color: 'var(--hud-text-dim)' }}>No corrections recorded yet. This is either impressive or suspicious.</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{t('corrections.noCorrectionsYet')}</span>
         )}
       </div>
 
       {/* Explanation */}
       {corrections.length > 0 && (
         <div className="text-[13px] italic mb-3" style={{ color: 'var(--hud-text-dim)' }}>
-          These are moments where I was wrong, corrected, or learned something the hard way. Critical = user caught a concrete error. Major = gotcha/pitfall absorbed. Minor = limitation noted.
+          {t('corrections.explanation')}
         </div>
       )}
 
@@ -74,7 +76,7 @@ export default function CorrectionsPanel() {
                   </div>
                   <div className="text-[13px]" style={{ color: s.color }}>{cor.detail}</div>
                   {cor.session_title && (
-                    <div className="text-[13px] mt-1" style={{ color: 'var(--hud-text-dim)' }}>↳ session: {cor.session_title}</div>
+                    <div className="text-[13px] mt-1" style={{ color: 'var(--hud-text-dim)' }}>↳ {t('corrections.session')} {cor.session_title}</div>
                   )}
                 </div>
               ))}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useLocale } from '../lib/i18n'
 
 interface Command {
   id: string
@@ -13,6 +14,7 @@ interface CommandPaletteProps {
 }
 
 export default function CommandPalette({ commands, onSelect }: CommandPaletteProps) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -72,7 +74,7 @@ export default function CommandPalette({ commands, onSelect }: CommandPalettePro
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Navigate to..."
+            placeholder={t('commandPalette.navigateTo')}
             className="w-full bg-transparent outline-none text-[13px] py-1"
             style={{ color: 'var(--hud-text)' }}
           />
@@ -103,15 +105,15 @@ export default function CommandPalette({ commands, onSelect }: CommandPalettePro
           ))}
           {filtered.length === 0 && (
             <div className="px-3 py-3 text-[13px] text-center" style={{ color: 'var(--hud-text-dim)' }}>
-              No results for "{query}"
+              {t('commandPalette.noResults')} "{query}"
             </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="px-3 py-1 text-[9px] flex justify-between" style={{ color: 'var(--hud-text-dim)', borderTop: '1px solid var(--hud-border)' }}>
-          <span>type to filter</span>
-          <span>ESC to close</span>
+          <span>{t('commandPalette.typeToFilter')}</span>
+          <span>{t('commandPalette.escToClose')}</span>
         </div>
       </div>
     </div>

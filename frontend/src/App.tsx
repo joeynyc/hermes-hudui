@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { ThemeProvider } from './hooks/useTheme'
 import { useWebSocket } from './hooks/useWebSocket'
+import { useLocale } from './lib/i18n'
 import TopBar, { type TabId, TABS } from './components/TopBar'
 import CommandPalette from './components/CommandPalette'
 import BootScreen from './components/BootScreen'
@@ -47,7 +48,7 @@ const GRID_CLASS: Record<TabId, string> = {
   projects: 'grid-cols-1',
   health: 'grid-cols-1 sm:grid-cols-2',
   agents: 'grid-cols-1 lg:grid-cols-2',
-  chat: 'grid-cols-1',  // Full width for chat
+  chat: 'grid-cols-1',
   profiles: 'grid-cols-1',
   'token-costs': 'grid-cols-1 lg:grid-cols-2',
   corrections: 'grid-cols-1',
@@ -59,7 +60,8 @@ export default function App() {
   const [booted, setBooted] = useState(() => {
     return sessionStorage.getItem('hud-booted') === 'true'
   })
-  
+  const { t } = useLocale()
+
   // WebSocket for real-time updates
   const { status: wsStatus } = useWebSocket()
 
@@ -72,13 +74,13 @@ export default function App() {
   const commands = useMemo(() => [
     ...TABS.filter(tab => tab.key !== null).map(tab => ({
       id: tab.id,
-      label: `${tab.label}`,
+      label: t(tab.labelKey),
       shortcut: tab.key as string,
       action: () => setActiveTab(tab.id),
     })),
     // Add Costs tab without shortcut
-    { id: 'token-costs', label: 'Costs', shortcut: '', action: () => setActiveTab('token-costs') },
-  ], [])
+    { id: 'token-costs', label: t('tabs.token-costs'), shortcut: '', action: () => setActiveTab('token-costs') },
+  ], [t])
 
   const handleCommandSelect = useCallback((id: string) => {
     setActiveTab(id as TabId)
@@ -115,29 +117,28 @@ export default function App() {
            style={{ borderColor: 'var(--hud-border)', color: 'var(--hud-text-dim)', background: 'var(--hud-bg-surface)' }}>
         <span className="flex items-center gap-2">
           ☤ hermes-hudui v0.1.0
-          {/* WebSocket status indicator */}
-          <span 
+          <span
             className="text-[10px] px-1.5 py-0.5 rounded"
-            style={{ 
-              background: wsStatus === 'connected' ? 'var(--hud-success)' : 
+            style={{
+              background: wsStatus === 'connected' ? 'var(--hud-success)' :
                          wsStatus === 'connecting' ? 'var(--hud-warning)' : 'var(--hud-error)',
               color: 'var(--hud-bg-deep)',
               opacity: 0.8
             }}
-            title={wsStatus === 'connected' ? 'Live updates active' : `WebSocket: ${wsStatus}`}
+            title={wsStatus === 'connected' ? t('statusBar.liveUpdatesActive') : `${t('statusBar.webSocketConnecting')} ${wsStatus}`}
           >
             {wsStatus === 'connected' ? '● live' : wsStatus}
           </span>
         </span>
         <span className="hidden sm:inline">
-          <span className="opacity-40">Ctrl+K</span> palette
+          <span className="opacity-40">Ctrl+K</span> {t('statusBar.palette')}
           <span className="mx-2">·</span>
-          <span className="opacity-40">1-9</span> tabs
+          <span className="opacity-40">1-9</span> {t('statusBar.tabs')}
           <span className="mx-2">·</span>
-          <span className="opacity-40">t</span> theme
+          <span className="opacity-40">t</span> {t('statusBar.theme')}
         </span>
         <span className="sm:hidden">
-          <span className="opacity-40">Ctrl+K</span> commands
+          <span className="opacity-40">Ctrl+K</span> {t('statusBar.commands')}
         </span>
       </div>
     </ThemeProvider>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLocale } from '../lib/i18n'
 
 const HERMES_ASCII = [
   ' ██╗  ██╗███████╗██████╗ ███╗   ███╗███████╗███████╗',
@@ -9,38 +10,30 @@ const HERMES_ASCII = [
   ' ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝',
 ]
 
-const BOOT_LINES = [
-  '☤ HERMES HUD v0.1.0',
-  '',
-  'Initializing consciousness monitor...',
-  'Reading ~/.hermes/state.db',
-  'Scanning memory banks',
-  'Indexing skill library',
-  'Checking service health',
-  'Profiling agent processes',
-  '',
-  '"I think, therefore I process."',
-  '',
-  'Systems ready.',
-]
-
 interface BootScreenProps {
   onComplete: () => void
 }
 
 export default function BootScreen({ onComplete }: BootScreenProps) {
+  const { t } = useLocale()
   const [visibleLines, setVisibleLines] = useState(0)
   const [asciiVisible, setAsciiVisible] = useState(false)
   const [fadeOut, setFadeOut] = useState(false)
   const [skipped, setSkipped] = useState(false)
 
+  const BOOT_LINES_KEYS = [
+    'boot.title', '', 'boot.initConsciousness', 'boot.readStateDb',
+    'boot.scanMemory', 'boot.indexSkills', 'boot.checkHealth',
+    'boot.profileAgents', '', 'boot.quote', '', 'boot.systemsReady',
+  ]
+
   useEffect(() => {
     const asciiTimer = setTimeout(() => setAsciiVisible(true), 200)
-    const lineTimers = BOOT_LINES.map((_, i) =>
+    const lineTimers = BOOT_LINES_KEYS.map((_, i) =>
       setTimeout(() => setVisibleLines(i + 1), 600 + i * 100)
     )
-    const fadeTimer = setTimeout(() => setFadeOut(true), 600 + BOOT_LINES.length * 100 + 400)
-    const completeTimer = setTimeout(onComplete, 600 + BOOT_LINES.length * 100 + 800)
+    const fadeTimer = setTimeout(() => setFadeOut(true), 600 + BOOT_LINES_KEYS.length * 100 + 400)
+    const completeTimer = setTimeout(onComplete, 600 + BOOT_LINES_KEYS.length * 100 + 800)
 
     return () => {
       clearTimeout(asciiTimer)
@@ -66,7 +59,7 @@ export default function BootScreen({ onComplete }: BootScreenProps) {
       }}
       onClick={handleSkip}
     >
-      {/* ASCII logo — hidden on very narrow screens */}
+      {/* ASCII logo */}
       <pre
         className="gradient-text text-[8px] sm:text-[13px] leading-tight mb-4 sm:mb-6 transition-opacity duration-300 text-center overflow-hidden"
         style={{
@@ -80,24 +73,30 @@ export default function BootScreen({ onComplete }: BootScreenProps) {
 
       {/* Boot text */}
       <div className="text-[13px] w-[90vw] max-w-[400px] px-4">
-        {BOOT_LINES.slice(0, visibleLines).map((line, i) => (
-          <div key={i} className="py-0.5" style={{
-            color: line.startsWith('"') ? 'var(--hud-accent)' :
-                   line.startsWith('☤') ? 'var(--hud-primary)' :
-                   line === 'Systems ready.' ? 'var(--hud-success)' :
-                   'var(--hud-text-dim)',
-            fontStyle: line.startsWith('"') ? 'italic' : 'normal',
-          }}>
-            {line}
-            {i === visibleLines - 1 && (
-              <span className="animate-pulse" style={{ color: 'var(--hud-primary)' }}>█</span>
-            )}
-          </div>
-        ))}
+        {BOOT_LINES_KEYS.slice(0, visibleLines).map((key, i) => {
+          const text = key === '' ? '' : t(key)
+          const isQuote = key === 'boot.quote'
+          const isReady = key === 'boot.systemsReady'
+          const isTitle = key === 'boot.title'
+          return (
+            <div key={i} className="py-0.5" style={{
+              color: isQuote ? 'var(--hud-accent)' :
+                     isReady ? 'var(--hud-success)' :
+                     isTitle ? 'var(--hud-primary)' :
+                     'var(--hud-text-dim)',
+              fontStyle: isQuote ? 'italic' : 'normal',
+            }}>
+              {text}
+              {i === visibleLines - 1 && (
+                <span className="animate-pulse" style={{ color: 'var(--hud-primary)' }}>█</span>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       <div className="absolute bottom-6 text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>
-        tap to skip
+        {t('boot.tapToSkip')}
       </div>
     </div>
   )

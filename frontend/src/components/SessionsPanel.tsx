@@ -1,12 +1,13 @@
 import { useApi } from '../hooks/useApi'
 import Panel, { Sparkline } from './Panel'
+import { useLocale } from '../lib/i18n'
 
 export default function SessionsPanel() {
+  const { t } = useLocale()
   const { data, isLoading } = useApi('/sessions', 30000)
 
-  // Only show loading on initial load
   if (isLoading && !data) {
-    return <Panel title="Sessions" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
+    return <Panel title={t('tabs.sessions')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('loading')}</div></Panel>
   }
 
   const sessions = data.sessions || []
@@ -17,19 +18,19 @@ export default function SessionsPanel() {
 
   return (
     <>
-      <Panel title="Session Activity" className="col-span-2">
+      <Panel title={t('sessions.sessionActivity')} className="col-span-2">
         <div className="flex gap-6 mb-3 text-[13px]">
           <div>
             <span className="stat-value text-base">{data.total_sessions || 0}</span>
-            <span className="stat-label ml-1">sessions</span>
+            <span className="stat-label ml-1">{t('sessions.sessions2')}</span>
           </div>
           <div>
             <span className="stat-value text-base">{(data.total_messages || 0).toLocaleString()}</span>
-            <span className="stat-label ml-1">messages</span>
+            <span className="stat-label ml-1">{t('sessions.messages2')}</span>
           </div>
           <div>
             <span className="stat-value text-base">{(data.total_tokens || 0).toLocaleString()}</span>
-            <span className="stat-label ml-1">tokens</span>
+            <span className="stat-label ml-1">{t('sessions.tokens2')}</span>
           </div>
           {Object.entries(bySource).map(([src, count]: any) => (
             <div key={src}>
@@ -39,16 +40,16 @@ export default function SessionsPanel() {
           ))}
         </div>
         <div className="mb-2">
-          <div className="text-[13px] uppercase tracking-wider mb-1" style={{ color: 'var(--hud-text-dim)' }}>Messages/day</div>
+          <div className="text-[13px] uppercase tracking-wider mb-1" style={{ color: 'var(--hud-text-dim)' }}>{t('sessions.messagesPerDay')}</div>
           <Sparkline values={dailyMessages} width={500} height={50} />
         </div>
         <div>
-          <div className="text-[13px] uppercase tracking-wider mb-1" style={{ color: 'var(--hud-text-dim)' }}>Sessions/day</div>
+          <div className="text-[13px] uppercase tracking-wider mb-1" style={{ color: 'var(--hud-text-dim)' }}>{t('sessions.sessionsPerDay')}</div>
           <Sparkline values={dailySessions} width={500} height={30} />
         </div>
       </Panel>
 
-      <Panel title="Recent Sessions">
+      <Panel title={t('sessions.recentSessions')}>
         <div className="space-y-0.5 text-[13px]">
           {sessions.slice(0, 15).map((s: any) => (
             <div key={s.id} className="flex items-center gap-2 py-0.5" style={{ borderBottom: '1px solid var(--hud-border)' }}>

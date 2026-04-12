@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocale } from '../../lib/i18n'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -11,6 +12,7 @@ interface MessageBubbleProps {
 }
 
 function CopyButton({ text }: { text: string }) {
+  const { t } = useLocale()
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -41,7 +43,7 @@ function CopyButton({ text }: { text: string }) {
         border: '1px solid var(--hud-border)',
       }}
     >
-      {copied ? 'Copied!' : 'Copy'}
+      {copied ? t('message.copied') : t('message.copyToClipboard')}
     </button>
   )
 }

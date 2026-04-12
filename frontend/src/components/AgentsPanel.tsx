@@ -1,6 +1,7 @@
 import { useApi } from '../hooks/useApi'
 import Panel from './Panel'
 import { formatDur } from '../lib/utils'
+import { useLocale } from '../lib/i18n'
 
 const SOURCE_STYLES: Record<string, { color: string; label: string }> = {
   cli: { color: 'var(--hud-success)', label: 'cli' },
@@ -9,11 +10,12 @@ const SOURCE_STYLES: Record<string, { color: string; label: string }> = {
 }
 
 export default function AgentsPanel() {
+  const { t } = useLocale()
   const { data, isLoading } = useApi('/agents', 15000)
 
   // Only show loading on initial load
   if (isLoading && !data) {
-    return <Panel title="Agents" className="col-span-full"><div className="glow text-[13px] animate-pulse">Scanning processes...</div></Panel>
+    return <Panel title={t('agents.agents')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('agents.scanningProcesses')}</div></Panel>
   }
 
   const processes = data.processes || []
@@ -26,12 +28,12 @@ export default function AgentsPanel() {
   return (
     <>
       {/* Live processes */}
-      <Panel title={`Live Agents — ${data.live_count} live, ${idle.length} idle`}>
+      <Panel title={`${t('agents.liveAgents')} — ${t('agents.liveCount', { count: data.live_count, idle: idle.length })}`}>
         {/* Operator alerts */}
         {alerts.length > 0 && (
           <div className="mb-3">
             <div className="text-[13px] font-bold mb-1" style={{ color: 'var(--hud-warning)' }}>
-              OPERATOR QUEUE — {alerts.length} waiting
+              {t('agents.operatorQueue')} — {alerts.length} {t('agents.waiting')}
             </div>
             {alerts.map((a: any, i: number) => (
               <div key={i} className="py-1 text-[13px]" style={{ borderLeft: '2px solid var(--hud-warning)' }}>
@@ -53,8 +55,8 @@ export default function AgentsPanel() {
                 <span style={{ color: 'var(--hud-success)' }}>▸</span>
                 <span className="font-bold">{proc.name}</span>
                 {proc.pid && <span className="text-[13px] tabular-nums" style={{ color: 'var(--hud-text-dim)' }}>[{proc.pid}]</span>}
-                <span className="text-[13px]" style={{ color: 'var(--hud-success)' }}>alive</span>
-                {proc.uptime && <span className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>up {proc.uptime}</span>}
+                <span className="text-[13px]" style={{ color: 'var(--hud-success)' }}>{t('agents.alive')}</span>
+                {proc.uptime && <span className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>{t('agents.up')} {proc.uptime}</span>}
                 {proc.mem_mb && <span className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>{proc.mem_mb} MB</span>}
                 {proc.cwd && <span className="text-[13px] truncate" style={{ color: 'var(--hud-text-dim)' }}>{proc.cwd}</span>}
                 {proc.tmux_jump_hint && <span className="text-[13px]" style={{ color: 'var(--hud-accent)' }}>→ {proc.tmux_jump_hint}</span>}
@@ -70,7 +72,7 @@ export default function AgentsPanel() {
           {/* Idle agents */}
           {idle.length > 0 && (
             <div className="text-[13px] mt-2">
-              <div className="text-[13px] uppercase tracking-wider mb-1" style={{ color: 'var(--hud-text-dim)' }}>Not running</div>
+              <div className="text-[13px] uppercase tracking-wider mb-1" style={{ color: 'var(--hud-text-dim)' }}>{t('agents.notRunning')}</div>
               <div className="flex flex-wrap gap-2">
                 {idle.map((proc: any, i: number) => (
                   <span key={`${proc.name}-${i}`} className="px-2 py-0.5" style={{ background: 'var(--hud-bg-panel)', color: 'var(--hud-text-dim)' }}>
@@ -86,11 +88,11 @@ export default function AgentsPanel() {
         {data.has_tmux && tmuxPanes.length > 0 && (
           <div className="mt-3 text-[13px]">
             <div className="uppercase tracking-wider mb-1" style={{ color: 'var(--hud-text-dim)' }}>
-              tmux panes — {tmuxPanes.length} total, {data.matched_pane_count} mapped
+              {t('agents.tmuxPanesTotalMapped', { total: tmuxPanes.length, mapped: data.matched_pane_count })}
             </div>
             {data.unmatched_interesting_panes?.map((pane: any, i: number) => (
               <div key={i} style={{ color: 'var(--hud-text-dim)' }}>
-                {pane.pane_id}  {pane.session_name}:{pane.window_index}.{pane.pane_index}  {pane.current_command}  (unmatched)
+                {pane.pane_id}  {pane.session_name}:{pane.window_index}.{pane.pane_index}  {pane.current_command}  ({t('agents.unmatched')})
               </div>
             ))}
           </div>
@@ -98,7 +100,7 @@ export default function AgentsPanel() {
       </Panel>
 
       {/* Recent sessions */}
-      <Panel title={`Recent Activity — last ${recentSessions.length} sessions`}>
+      <Panel title={t('agents.recentActivityLast', { count: recentSessions.length })}>
         <div className="space-y-0.5">
           {recentSessions.map((sess: any, i: number) => {
             const style = SOURCE_STYLES[sess.source] || { color: 'var(--hud-text-dim)', label: sess.source }
@@ -112,11 +114,11 @@ export default function AgentsPanel() {
                   {style.label}
                 </span>
                 <span className="truncate flex-1">
-                  {sess.title || 'untitled'}
+                  {sess.title || t('agents.untitled')}
                 </span>
                 <span className="text-[13px] flex-shrink-0 tabular-nums" style={{ color: 'var(--hud-text-dim)' }}>
-                  {sess.message_count}m
-                  {sess.tool_call_count > 0 && <> {sess.tool_call_count}t</>}
+                  {sess.message_count}{t('agents.msg')}
+                  {sess.tool_call_count > 0 && <> {sess.tool_call_count}{t('agents.tool')}</>}
                   {sess.duration_minutes && <span className="ml-1">{formatDur(sess.duration_minutes)}</span>}
                 </span>
               </div>

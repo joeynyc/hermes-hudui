@@ -1,3 +1,5 @@
+import { useLocale } from '../../lib/i18n'
+
 interface SessionSidebarProps {
   sessions: Array<{ id: string; title: string; backend_type: string; is_active: boolean }>
   activeSessionId: string | null
@@ -13,6 +15,7 @@ export default function SessionSidebar({
   onCreate,
   loading,
 }: SessionSidebarProps) {
+  const { t } = useLocale()
   return (
     <div
       className="h-full flex flex-col"
@@ -24,7 +27,7 @@ export default function SessionSidebar({
         style={{ borderColor: 'var(--hud-border)' }}
       >
         <span className="text-[11px] uppercase tracking-widest" style={{ color: 'var(--hud-text-dim)' }}>
-          Sessions
+          {t('chat.sidebarSessions')}
         </span>
         <button
           onClick={onCreate}
@@ -36,7 +39,7 @@ export default function SessionSidebar({
             opacity: loading ? 0.5 : 1,
           }}
         >
-          + New
+          {t('chat.sidebarNew')}
         </button>
       </div>
 
@@ -44,9 +47,9 @@ export default function SessionSidebar({
       <div className="flex-1 overflow-y-auto">
         {sessions.length === 0 ? (
           <div className="p-3 text-[12px]" style={{ color: 'var(--hud-text-dim)' }}>
-            No active sessions.
+            {t('chat.sidebarNoActiveSessions')}
             <br />
-            Click "+ New" to start chatting.
+            {t('chat.clickNewToStart')}
           </div>
         ) : (
           sessions.map((session) => (
@@ -71,7 +74,7 @@ export default function SessionSidebar({
                   ●
                 </span>
                 {session.backend_type}
-                {!session.is_active && ' (ended)'}
+                {!session.is_active && ` ${t('chat.sessionEnded')}`}
               </div>
             </button>
           ))
