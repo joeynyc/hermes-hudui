@@ -347,8 +347,8 @@ function ClosingStatements({ sessions, corrections }: { sessions: any; correctio
   return (
     <Panel title={t('dashboard.status')}>
       <div className="text-[13px] space-y-1" style={{ color: 'var(--hud-primary)' }}>
-        <div>{t('dashboard.processedThoughts', { $count: (sessions?.total_messages || 0).toLocaleString(), $days: String(days) })}</div>
-        <div>{t('dashboard.correctedTimes', { $count: String(corrections?.total || 0) })}</div>
+        <div>{t('dashboard.processedThoughts', { count: (sessions?.total_messages || 0).toLocaleString(), days: String(days) })}</div>
+        <div>{t('dashboard.correctedTimes', { count: String(corrections?.total || 0) })}</div>
         <div style={{ color: 'var(--hud-primary-dim)' }}>{t('dashboard.doNotForget')}</div>
         <div className="mt-2 font-bold" style={{ color: 'var(--hud-accent)' }}>{t('dashboard.stillBecoming')}</div>
       </div>
