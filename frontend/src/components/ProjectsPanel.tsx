@@ -49,7 +49,7 @@ export default function ProjectsPanel() {
 
   const all = data.projects || data || []
   if (!Array.isArray(all) || all.length === 0) {
-    return <Panel title="Projects" className="col-span-full"><div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No projects found</div></Panel>
+    return <Panel title="Projects" className="col-span-full"><div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No projects found. Set HERMES_HUD_PROJECTS_DIR or let fallback scan discover local git repos.</div></Panel>
   }
 
   const { gitRepos, active, recent, stale, noGit, dirtyCount } = all.reduce(

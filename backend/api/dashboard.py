@@ -8,6 +8,7 @@ from backend.collectors.projects import collect_projects
 from backend.collectors.health import collect_health
 from backend.collectors.corrections import collect_corrections
 from backend.collectors.snapshot import load_snapshots
+from backend.collectors.artplex_ops import collect_artplex_ops
 from .serialize import to_dict
 
 router = APIRouter()
@@ -21,6 +22,7 @@ async def get_dashboard():
     health = collect_health()
     corrections = collect_corrections()
     snapshots = load_snapshots()
+    artplex_ops = collect_artplex_ops()
 
     # Trim state: only keep what the narrative sections need
     lean_state = {
@@ -51,7 +53,7 @@ async def get_dashboard():
             "total_messages": state.sessions.total_messages,
             "total_tool_calls": state.sessions.total_tool_calls,
             "total_tokens": state.sessions.total_tokens,
-            "by_source": state.sessions.by_source(),
+            "by_source": state.sessions.by_source,
             "tool_usage": dict(
                 sorted(state.sessions.tool_usage.items(), key=lambda x: -x[1])[:12]
             ),
@@ -84,6 +86,7 @@ async def get_dashboard():
         "health": to_dict(health),
         "projects": projects,
         "cron": cron,
+        "artplex_ops": to_dict(artplex_ops),
         "corrections": to_dict(corrections),
         "snapshots": snapshots,
     }

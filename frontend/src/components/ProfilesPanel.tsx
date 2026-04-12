@@ -5,7 +5,7 @@ import { timeAgo, formatTokens } from '../lib/utils'
 function StatusDot({ status }: { status: string }) {
   const color = status === 'active' || status === 'running'
     ? 'var(--hud-success)'
-    : status === 'inactive' || status === 'stopped'
+    : status === 'inactive' || status === 'stopped' || status === 'idle'
     ? 'var(--hud-error)'
     : status === 'n/a'
     ? 'var(--hud-text-dim)'
@@ -17,9 +17,8 @@ function StatusDot({ status }: { status: string }) {
 function ProfileCard({ p }: { p: any }) {
   return (
     <div className="p-4" style={{ background: 'var(--hud-bg-panel)', border: '1px solid var(--hud-border)' }}>
-      {/* Header: name + badge + status */}
-      <div className="flex items-center gap-2 mb-3">
-        <StatusDot status={p.gateway_status} />
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <StatusDot status={p.activity_status} />
         <span className="font-bold text-[14px]" style={{ color: 'var(--hud-primary)' }}>
           {p.name}
         </span>
@@ -28,15 +27,11 @@ function ProfileCard({ p }: { p: any }) {
           style={{ background: 'var(--hud-bg-hover)', color: p.is_local ? 'var(--hud-secondary)' : 'var(--hud-accent)' }}>
           {p.is_local ? 'local' : p.provider}
         </span>
-        {p.gateway_status === 'active' && (
-          <span className="text-[13px]" style={{ color: 'var(--hud-success)' }}>gateway up</span>
-        )}
-        {p.server_status === 'running' && (
-          <span className="text-[13px]" style={{ color: 'var(--hud-success)' }}>server up</span>
-        )}
+        <span className="text-[13px]" style={{ color: p.activity_status === 'active' ? 'var(--hud-success)' : 'var(--hud-text-dim)' }}>
+          {p.activity_status}
+        </span>
       </div>
 
-      {/* Model & Backend */}
       <div className="space-y-1 text-[13px] mb-3">
         <div className="grid grid-cols-[80px_1fr] gap-1">
           <span style={{ color: 'var(--hud-text-dim)' }}>Model</span>
@@ -78,7 +73,6 @@ function ProfileCard({ p }: { p: any }) {
         )}
       </div>
 
-      {/* Usage stats */}
       <div className="text-[13px] mb-3 py-2" style={{ borderTop: '1px solid var(--hud-border)', borderBottom: '1px solid var(--hud-border)' }}>
         <div className="grid grid-cols-3 gap-2 mb-2">
           <div>
@@ -101,12 +95,15 @@ function ProfileCard({ p }: { p: any }) {
           </span>
         </div>
         <div className="grid grid-cols-[80px_1fr] gap-1">
-          <span style={{ color: 'var(--hud-text-dim)' }}>Active</span>
-          <span style={{ color: 'var(--hud-text-dim)' }}>{timeAgo(p.last_active)}</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>Activity</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{p.activity_reason || timeAgo(p.last_active)}</span>
+        </div>
+        <div className="grid grid-cols-[80px_1fr] gap-1">
+          <span style={{ color: 'var(--hud-text-dim)' }}>Sessions</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{p.active_session_count || 0} in flight · last active {timeAgo(p.last_active)}</span>
         </div>
       </div>
 
-      {/* Memory */}
       <div className="mb-3">
         <CapacityBar value={p.memory_chars || 0} max={p.memory_max_chars || 2200} label="MEMORY" />
         <div className="text-[13px] mb-1" style={{ color: 'var(--hud-text-dim)' }}>
@@ -118,7 +115,6 @@ function ProfileCard({ p }: { p: any }) {
         </div>
       </div>
 
-      {/* Skills, Cron, Toolsets */}
       <div className="space-y-1 text-[13px]">
         <div className="grid grid-cols-[80px_1fr] gap-1">
           <span style={{ color: 'var(--hud-text-dim)' }}>Skills</span>
@@ -146,15 +142,14 @@ function ProfileCard({ p }: { p: any }) {
           </div>
         )}
 
-        {/* Services */}
         <div className="grid grid-cols-[80px_1fr] gap-1">
-          <span style={{ color: 'var(--hud-text-dim)' }}>Gateway</span>
-          <span><StatusDot status={p.gateway_status} /> {p.gateway_status}
+          <span style={{ color: 'var(--hud-text-dim)' }}>Services</span>
+          <span>
+            Gateway <StatusDot status={p.gateway_status} /> {p.gateway_status}
             <span className="ml-3">Server <StatusDot status={p.server_status} /> {p.server_status}</span>
           </span>
         </div>
 
-        {/* API Keys */}
         {p.api_keys?.length > 0 && (
           <div className="grid grid-cols-[80px_1fr] gap-1">
             <span style={{ color: 'var(--hud-text-dim)' }}>Keys</span>
@@ -162,7 +157,6 @@ function ProfileCard({ p }: { p: any }) {
           </div>
         )}
 
-        {/* Alias */}
         {p.has_alias && (
           <div className="grid grid-cols-[80px_1fr] gap-1">
             <span style={{ color: 'var(--hud-text-dim)' }}>Alias</span>

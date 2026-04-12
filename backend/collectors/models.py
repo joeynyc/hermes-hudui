@@ -101,6 +101,14 @@ class SessionInfo:
         return self.input_tokens + self.output_tokens
 
     @property
+    def full_token_footprint(self) -> int:
+        return self.input_tokens + self.output_tokens + self.cache_read_tokens + self.cache_write_tokens + self.reasoning_tokens
+
+    @property
+    def in_flight(self) -> bool:
+        return self.ended_at is None
+
+    @property
     def duration_minutes(self) -> Optional[float]:
         if self.ended_at and self.started_at:
             return (self.ended_at - self.started_at).total_seconds() / 60
@@ -139,6 +147,14 @@ class SessionsState:
         return sum(s.total_tokens for s in self.sessions)
 
     @property
+    def total_full_tokens(self) -> int:
+        return sum(s.full_token_footprint for s in self.sessions)
+
+    @property
+    def active_sessions_count(self) -> int:
+        return sum(1 for s in self.sessions if s.in_flight)
+
+    @property
     def date_range(self) -> tuple[Optional[datetime], Optional[datetime]]:
         if not self.sessions:
             return None, None
@@ -147,6 +163,7 @@ class SessionsState:
             max(s.started_at for s in self.sessions),
         )
 
+    @property
     def by_source(self) -> dict[str, int]:
         return dict(Counter(s.source for s in self.sessions))
 
@@ -273,6 +290,9 @@ class ProfileInfo:
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     last_active: Optional[datetime] = None
+    active_session_count: int = 0
+    activity_status: str = "idle"   # active, idle
+    activity_reason: str = ""
     # Memory
     memory_entries: int = 0
     memory_chars: int = 0
@@ -286,7 +306,7 @@ class ProfileInfo:
     # API keys configured (names only)
     api_keys: list[str] = field(default_factory=list)
     # Status
-    gateway_status: str = "unknown"    # active, inactive, unknown
+    gateway_status: str = "unknown"    # active, inactive, unknown, n/a
     server_status: str = "unknown"     # running, stopped, unknown, n/a
     has_alias: bool = False
     # Compression
@@ -320,7 +340,7 @@ class ProfilesState:
 
     @property
     def active_count(self) -> int:
-        return sum(1 for p in self.profiles if p.gateway_status == "active" or p.server_status == "running")
+        return sum(1 for p in self.profiles if p.activity_status == "active")
 
     def local_profiles(self) -> list[ProfileInfo]:
         return [p for p in self.profiles if p.is_local]

@@ -149,67 +149,101 @@ def _detect_languages(path: Path) -> list[str]:
     return sorted(langs)[:5]  # Cap at 5
 
 
+def _build_project_info(item: Path) -> ProjectInfo:
+    is_git = (item / '.git').is_dir()
+    proj = ProjectInfo(
+        name=item.name,
+        path=str(item),
+        is_git=is_git,
+        has_readme=(item / 'README.md').exists() or (item / 'readme.md').exists(),
+        has_package_json=(item / 'package.json').exists(),
+        has_requirements=(item / 'requirements.txt').exists(),
+        has_pyproject=(item / 'pyproject.toml').exists(),
+        languages=_detect_languages(item),
+    )
+
+    try:
+        proj.last_modified = datetime.fromtimestamp(item.stat().st_mtime)
+    except OSError:
+        pass
+
+    if is_git:
+        proj.branch = _run_git(str(item), ['branch', '--show-current']) or 'HEAD'
+
+        log_output = _run_git(str(item), ['log', '-1', '--format=%ar|%s|%ct'])
+        if log_output and '|' in log_output:
+            parts = log_output.split('|', 2)
+            proj.last_commit_ago = parts[0]
+            proj.last_commit_msg = parts[1] if len(parts) > 1 else None
+            try:
+                proj.last_commit_ts = float(parts[2]) if len(parts) > 2 else None
+            except ValueError:
+                pass
+
+        status = _run_git(str(item), ['status', '--porcelain'])
+        proj.dirty_files = len([l for l in status.split('\n') if l.strip()]) if status else 0
+
+        count = _run_git(str(item), ['rev-list', '--count', 'HEAD'])
+        try:
+            proj.total_commits = int(count)
+        except ValueError:
+            pass
+
+    return proj
+
+
+def _discover_git_repos_fallback(home: Path) -> list[Path]:
+    repos: list[Path] = []
+    seen: set[Path] = set()
+    skip_names = {'Library', 'Applications', 'Movies', 'Music', 'Pictures', 'Public', 'Downloads', '.Trash'}
+
+    def maybe_add(repo_path: Path) -> None:
+        repo_path = repo_path.resolve()
+        if repo_path in seen:
+            return
+        if not (repo_path / '.git').is_dir():
+            return
+        seen.add(repo_path)
+        repos.append(repo_path)
+
+    try:
+        for child in home.iterdir():
+            if not child.is_dir() or child.name.startswith('.') or child.name in skip_names:
+                continue
+            maybe_add(child)
+            try:
+                for grandchild in child.iterdir():
+                    if not grandchild.is_dir() or grandchild.name.startswith('.'):
+                        continue
+                    maybe_add(grandchild)
+            except PermissionError:
+                continue
+    except PermissionError:
+        return []
+
+    return sorted(repos)
+
+
 def collect_projects(projects_dir: str | None = None) -> ProjectsState:
-    """Collect project data from the projects directory."""
+    """Collect project data from the projects directory or a home-directory git fallback."""
     if projects_dir is None:
         projects_dir = default_projects_dir(projects_dir)
 
     projects_path = Path(projects_dir)
-    if not projects_path.exists():
-        return ProjectsState(projects_dir=projects_dir)
+    project_dirs: list[Path] = []
+    projects_dir_label = projects_dir
 
-    projects: list[ProjectInfo] = []
+    if projects_path.exists():
+        for item in sorted(projects_path.iterdir()):
+            if not item.is_dir():
+                continue
+            if item.name.startswith('.'):
+                continue
+            project_dirs.append(item)
+    else:
+        home = Path(os.path.expanduser('~'))
+        project_dirs = _discover_git_repos_fallback(home)
+        projects_dir_label = f"{home} (fallback scan)"
 
-    for item in sorted(projects_path.iterdir()):
-        if not item.is_dir():
-            continue
-        if item.name.startswith("."):
-            continue
-
-        is_git = (item / ".git").is_dir()
-        proj = ProjectInfo(
-            name=item.name,
-            path=str(item),
-            is_git=is_git,
-            has_readme=(item / "README.md").exists() or (item / "readme.md").exists(),
-            has_package_json=(item / "package.json").exists(),
-            has_requirements=(item / "requirements.txt").exists(),
-            has_pyproject=(item / "pyproject.toml").exists(),
-            languages=_detect_languages(item),
-        )
-
-        # Get directory mtime
-        try:
-            proj.last_modified = datetime.fromtimestamp(item.stat().st_mtime)
-        except OSError:
-            pass
-
-        if is_git:
-            # Branch
-            proj.branch = _run_git(str(item), ["branch", "--show-current"]) or "HEAD"
-
-            # Last commit
-            log_output = _run_git(str(item), ["log", "-1", "--format=%ar|%s|%ct"])
-            if log_output and "|" in log_output:
-                parts = log_output.split("|", 2)
-                proj.last_commit_ago = parts[0]
-                proj.last_commit_msg = parts[1] if len(parts) > 1 else None
-                try:
-                    proj.last_commit_ts = float(parts[2]) if len(parts) > 2 else None
-                except ValueError:
-                    pass
-
-            # Dirty files
-            status = _run_git(str(item), ["status", "--porcelain"])
-            proj.dirty_files = len([l for l in status.split("\n") if l.strip()]) if status else 0
-
-            # Total commits
-            count = _run_git(str(item), ["rev-list", "--count", "HEAD"])
-            try:
-                proj.total_commits = int(count)
-            except ValueError:
-                pass
-
-        projects.append(proj)
-
-    return ProjectsState(projects=projects, projects_dir=projects_dir)
+    projects = [_build_project_info(item) for item in project_dirs]
+    return ProjectsState(projects=projects, projects_dir=projects_dir_label)

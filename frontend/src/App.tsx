@@ -5,6 +5,7 @@ import TopBar, { type TabId, TABS } from './components/TopBar'
 import CommandPalette from './components/CommandPalette'
 import BootScreen from './components/BootScreen'
 import DashboardPanel from './components/DashboardPanel'
+import ArtplexPanel from './components/ArtplexPanel'
 import MemoryPanel from './components/MemoryPanel'
 import SkillsPanel from './components/SkillsPanel'
 import SessionsPanel from './components/SessionsPanel'
@@ -21,6 +22,7 @@ import PatternsPanel from './components/PatternsPanel'
 function TabContent({ tab }: { tab: TabId }) {
   switch (tab) {
     case 'dashboard': return <DashboardPanel />
+    case 'artplex': return <ArtplexPanel />
     case 'memory': return <MemoryPanel />
     case 'skills': return <SkillsPanel />
     case 'sessions': return <SessionsPanel />
@@ -40,6 +42,7 @@ function TabContent({ tab }: { tab: TabId }) {
 // Grid layout per tab — responsive: 1 col on mobile, full on desktop
 const GRID_CLASS: Record<TabId, string> = {
   dashboard: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  artplex: 'grid-cols-1 lg:grid-cols-2',
   memory: 'grid-cols-1 sm:grid-cols-2',
   skills: 'grid-cols-1 lg:grid-cols-[2fr_1fr]',
   sessions: 'grid-cols-1 lg:grid-cols-[2fr_1fr]',
@@ -132,7 +135,9 @@ export default function App() {
         <span className="hidden sm:inline">
           <span className="opacity-40">Ctrl+K</span> palette
           <span className="mx-2">·</span>
-          <span className="opacity-40">1-9</span> tabs
+          <span className="opacity-40">1-9/0</span> tabs
+          <span className="mx-2">·</span>
+          <span className="opacity-40">a</span> artplex
           <span className="mx-2">·</span>
           <span className="opacity-40">t</span> theme
         </span>

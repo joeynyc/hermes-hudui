@@ -197,6 +197,114 @@ function WhatRunsWhileYouSleep({ cron }: { cron: any }) {
   )
 }
 
+function ArtplexOperations({ artplex }: { artplex: any }) {
+  if (!artplex?.has_data) return null
+
+  const normalize = (value?: string) => value ? value.replace(/_/g, ' ') : '—'
+  const nextAction = artplex.next_executable_action || artplex.next_ready_action
+  const blockers = artplex.primary_blockers || []
+  const topPriority = (artplex.today_priorities || [])[0]
+  const nextActionBlocked = nextAction ? !!nextAction.execution_blocked : false
+
+  return (
+    <Panel title="ARTPLEX Ops">
+      <div className="text-[13px] space-y-2">
+        <div className="font-bold" style={{ color: 'var(--hud-primary)' }}>{artplex.operator_summary}</div>
+        <div style={{ color: 'var(--hud-text-dim)' }}>{artplex.operator_focus_detail}</div>
+        <div><span style={{ color: 'var(--hud-text-dim)' }}>repo</span> <span className="font-bold">{artplex.repo_path}</span></div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span style={{ color: 'var(--hud-text-dim)' }}>branch</span>
+          <span className="font-bold">{artplex.repo_branch || '-'}</span>
+          <span style={{ color: artplex.repo_dirty_files > 0 ? 'var(--hud-warning)' : 'var(--hud-success)' }}>
+            {artplex.repo_dirty_files > 0 ? `${artplex.repo_dirty_files} dirty` : 'clean'}
+          </span>
+          {artplex.week && <span style={{ color: 'var(--hud-text-dim)' }}>week {artplex.week}</span>}
+        </div>
+        <div className="flex items-center gap-1 flex-wrap">
+          <span style={{ color: 'var(--hud-primary)' }}>◉</span>
+          <span className="font-bold">{artplex.total_campaigns}</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>campaigns</span>
+          <span style={{ color: 'var(--hud-success)' }}>{artplex.launchable_campaigns} launchable</span>
+          <span style={{ color: 'var(--hud-accent)' }}>{artplex.staged_validation_campaigns || 0} staged validation</span>
+          <span style={{ color: 'var(--hud-warning)' }}>{artplex.gated_campaigns} gated</span>
+        </div>
+        <div className="flex items-center gap-1 flex-wrap">
+          <span style={{ color: 'var(--hud-primary)' }}>◉</span>
+          <span className="font-bold">{artplex.packet_total}</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>publish packets</span>
+          <span style={{ color: 'var(--hud-success)' }}>{artplex.packet_ready_executable || 0} executable</span>
+          <span style={{ color: 'var(--hud-warning)' }}>{artplex.packet_ready_blocked || 0} blocked-ready</span>
+          <span style={{ color: 'var(--hud-accent)' }}>{artplex.packet_conditional} conditional</span>
+        </div>
+        {(artplex.storefront_cafe24_status || artplex.storefront_shopify_status) && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span style={{ color: 'var(--hud-primary)' }}>◉</span>
+            <span className="font-bold">storefront</span>
+            <span style={{ color: artplex.storefront_shopify_status === 'launchable' ? 'var(--hud-success)' : 'var(--hud-text-dim)' }}>Shopify {normalize(artplex.storefront_shopify_status)}</span>
+            <span style={{ color: artplex.storefront_cafe24_status === 'amber' ? 'var(--hud-accent)' : artplex.storefront_cafe24_status === 'gated' ? 'var(--hud-warning)' : 'var(--hud-text-dim)' }}>Cafe24 {normalize(artplex.storefront_cafe24_status)}</span>
+          </div>
+        )}
+        {nextAction && (
+          <div className="p-2" style={{ background: 'var(--hud-bg-panel)' }}>
+            <div className="font-bold">{nextAction.executable ? 'next executable packet' : 'next blocked packet'}</div>
+            <div>{nextAction.ip_name || nextAction.campaign_id} · {nextAction.channel} · {normalize(nextAction.action_type)}</div>
+            <div style={{ color: 'var(--hud-text-dim)' }}>{nextAction.scheduled_for_kst || 'unscheduled'}</div>
+            {nextActionBlocked && <div style={{ color: 'var(--hud-warning)' }}>{nextAction.execution_reason || 'publish channel currently blocked'}</div>}
+          </div>
+        )}
+        <div className="flex items-start gap-1">
+          <span style={{ color: 'var(--hud-primary)' }}>◉</span>
+          <div>
+            <div>
+              <span className="font-bold">live channels</span>
+              <span style={{ color: 'var(--hud-text-dim)' }}> ready: </span>
+              <span style={{ color: 'var(--hud-success)' }}>{(artplex.live_channels_ready || []).join(', ') || 'none'}</span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--hud-text-dim)' }}>blocked: </span>
+              <span style={{ color: 'var(--hud-warning)' }}>{(artplex.live_channels_blocked || []).join(', ') || 'none'}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-wrap">
+          <span style={{ color: 'var(--hud-primary)' }}>◉</span>
+          <span className="font-bold">measurement</span>
+          <span style={{ color: artplex.measurement_mode === 'dry_run' ? 'var(--hud-warning)' : 'var(--hud-success)' }}>{normalize(artplex.measurement_mode)}</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{artplex.measurement_publish_attempted} attempts</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{artplex.measurement_publish_skipped} skipped</span>
+        </div>
+        {topPriority && (
+          <div className="p-2" style={{ background: 'var(--hud-bg-panel)' }}>
+            <div className="font-bold">top priority</div>
+            <div>{topPriority.priority} · {topPriority.title}</div>
+            <div style={{ color: 'var(--hud-text-dim)' }}>{topPriority.next_step || topPriority.summary}</div>
+          </div>
+        )}
+        {blockers.length > 0 && (
+          <div className="pt-1" style={{ borderTop: '1px solid var(--hud-border)' }}>
+            {blockers.slice(0, 3).map((item: string) => (
+              <div key={item} style={{ color: 'var(--hud-warning)' }}>• {normalize(item)}</div>
+            ))}
+          </div>
+        )}
+        {artplex.campaigns?.length > 0 && (
+          <div className="pt-1" style={{ borderTop: '1px solid var(--hud-border)' }}>
+            {artplex.campaigns.slice(0, 4).map((c: any) => (
+              <div key={c.campaign_id} className="flex items-center gap-2 py-0.5 flex-wrap">
+                <span style={{ color: c.status === 'launchable' ? 'var(--hud-success)' : 'var(--hud-warning)' }}>◆</span>
+                <span className="font-bold">{c.ip_name || c.campaign_id}</span>
+                <span style={{ color: 'var(--hud-text-dim)' }}>{c.store}</span>
+                <span style={{ color: c.status === 'launchable' ? 'var(--hud-success)' : 'var(--hud-warning)' }}>{c.status}</span>
+                <span style={{ color: 'var(--hud-text-dim)' }}>{normalize(c.week1_mode)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Panel>
+  )
+}
+
 function HowIThink({ sessions }: { sessions: any }) {
   const toolUsage = sessions?.tool_usage || {}
   const top = Object.entries(toolUsage)
@@ -357,7 +465,7 @@ export default function DashboardPanel() {
     )
   }
 
-  const { state, health, projects, cron, corrections, snapshots } = data
+  const { state, health, projects, cron, artplex_ops: artplexOps, corrections, snapshots } = data
   const { memory, user, skills, sessions } = state
 
   return (
@@ -375,13 +483,15 @@ export default function DashboardPanel() {
       <WhatImWorkingOn projects={projects} />
       <WhatRunsWhileYouSleep cron={cron} />
 
-      {/* Row 3: how I think + my rhythm + growth delta */}
+      {/* Row 3: ARTPLEX ops + how I think + my rhythm */}
+      <ArtplexOperations artplex={artplexOps} />
       <HowIThink sessions={sessions} />
       <MyRhythm sessions={sessions} />
       <GrowthDelta snapshots={snapshots || []} />
 
       {/* Row 4: closing statements */}
       <ClosingStatements sessions={sessions} corrections={corrections} />
+
     </>
   )
 }
