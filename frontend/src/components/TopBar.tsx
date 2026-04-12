@@ -10,8 +10,9 @@ export const TABS = [
   { id: 'projects', label: 'Projects', key: '6' },
   { id: 'health', label: 'Health', key: '7' },
   { id: 'agents', label: 'Agents', key: '8' },
-  { id: 'profiles', label: 'Profiles', key: '9' },
-  { id: 'token-costs', label: 'Costs', key: '0' },
+  { id: 'chat', label: 'Chat', key: '9' },
+  { id: 'profiles', label: 'Profiles', key: '0' },
+  { id: 'token-costs', label: 'Costs', key: null },  // Click only, no hotkey
 ] as const
 
 export type TabId = typeof TABS[number]['id']
@@ -38,15 +39,18 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
       if (e.metaKey || e.ctrlKey || e.altKey) return
 
-      // 1-9 for tabs
+      // 1-9 for tabs (only tabs with numeric keys)
       const num = parseInt(e.key)
-      if (!isNaN(num) && num >= 1 && num <= TABS.length) {
-        onTabChange(TABS[num - 1].id)
-        return
+      if (!isNaN(num) && num >= 1 && num <= 9) {
+        const tab = TABS.find(t => t.key === String(num))
+        if (tab) {
+          onTabChange(tab.id)
+          return
+        }
       }
-      // 0 for last tab
+      // 0 for Profiles (10th tab with key '0')
       if (e.key === '0') {
-        onTabChange('token-costs')
+        onTabChange('profiles')
         return
       }
       // T to toggle theme picker
@@ -80,7 +84,7 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
               minHeight: '32px',
             }}
           >
-            <span className="opacity-40 mr-1">{tab.key}</span>
+            {tab.key && <span className="opacity-40 mr-1">{tab.key}</span>}
             {tab.label}
           </button>
         ))}

@@ -30,6 +30,7 @@ from .api import (
     dashboard,
     token_costs,
     cache,
+    chat,
 )
 from .file_watcher import start_watcher, stop_watcher
 from .websocket_manager import ws_manager
@@ -102,6 +103,7 @@ app.include_router(snapshots.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(token_costs.router, prefix="/api")
 app.include_router(cache.router, prefix="/api")
+app.include_router(chat.router, prefix="/api")
 
 # Serve frontend static files (after API routes so /api takes priority)
 if STATIC_DIR.exists():

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Map file patterns to data types for targeted cache invalidation
 FILE_PATTERNS = {
-    "state.db": ["sessions", "patterns", "timeline"],
+    "state.db": ["sessions", "patterns", "timeline", "messages", "chat"],
     "MEMORY.md": ["memory"],
     "USER.md": ["user", "memory"],
     "config.yaml": ["config", "profiles"],

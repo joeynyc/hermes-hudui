@@ -22,6 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 tui = ["hermes-hud>=0.5.0"]
+chat = ["hermes-agent>=0.1.0"]
 
 [project.scripts]
 hermes-hudui = "backend.main:cli"

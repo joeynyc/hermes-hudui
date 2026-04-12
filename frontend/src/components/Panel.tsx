@@ -4,13 +4,14 @@ interface PanelProps {
   title: string
   children: ReactNode
   className?: string
+  noPadding?: boolean
 }
 
-export default function Panel({ title, children, className = '' }: PanelProps) {
+export default function Panel({ title, children, className = '', noPadding = false }: PanelProps) {
   return (
     <div className={`hud-panel ${className}`}>
       <div className="hud-panel-title">{title}</div>
-      <div className="hud-panel-content">
+      <div className={noPadding ? 'flex-1 overflow-hidden flex flex-col' : 'hud-panel-content'}>
         {children}
       </div>
     </div>
