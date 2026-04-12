@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocale } from '../../lib/i18n'
 import type { ToolCall } from '../../hooks/useChat'
 
 interface ToolCallCardProps {
@@ -6,6 +7,7 @@ interface ToolCallCardProps {
 }
 
 export default function ToolCallCard({ tool }: ToolCallCardProps) {
+  const { t } = useLocale()
   const [expanded, setExpanded] = useState(false)
 
   const isRunning = tool.status === 'running'
@@ -36,7 +38,7 @@ export default function ToolCallCard({ tool }: ToolCallCardProps) {
           <span className="font-bold">{tool.name}</span>
           {isRunning && (
             <span className="animate-pulse" style={{ color: 'var(--hud-warning)' }}>
-              running...
+              {t('toolCallCard.running')}
             </span>
           )}
         </div>
@@ -49,7 +51,7 @@ export default function ToolCallCard({ tool }: ToolCallCardProps) {
           {/* Arguments */}
           <div>
             <div style={{ color: 'var(--hud-text-dim)' }} className="mb-0.5">
-              arguments:
+              {t('toolCallCard.arguments')}:
             </div>
             <pre
               className="p-1.5 overflow-x-auto text-[11px]"
@@ -72,7 +74,7 @@ export default function ToolCallCard({ tool }: ToolCallCardProps) {
                 }}
                 className="mb-0.5"
               >
-                {tool.error ? 'error:' : 'result:'}
+                {tool.error ? t('toolCallCard.error') : t('toolCallCard.result')}:
               </div>
               <pre
                 className="p-1.5 overflow-x-auto text-[11px]"

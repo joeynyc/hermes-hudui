@@ -1,8 +1,10 @@
 import { useApi } from '../hooks/useApi'
 import Panel, { CapacityBar } from './Panel'
+import { useLocale } from '../lib/i18n'
 
 function MemoryEntries({ entries }: { entries: any[] }) {
-  if (!entries?.length) return <div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No entries</div>
+  const { t } = useLocale()
+  if (!entries?.length) return <div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>{t('memory.noEntries')}</div>
 
   return (
     <div className="space-y-1.5">
@@ -22,29 +24,29 @@ function MemoryEntries({ entries }: { entries: any[] }) {
 }
 
 export default function MemoryPanel() {
+  const { t } = useLocale()
   const { data, isLoading } = useApi('/memory', 30000)
 
-  // Only show loading on initial load
   if (isLoading && !data) {
-    return <Panel title="Memory" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
+    return <Panel title={t('tabs.memory')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('loading')}</div></Panel>
   }
 
   const { memory, user } = data
 
   return (
     <>
-      <Panel title="Agent Memory" className="col-span-1">
-        <CapacityBar value={memory?.total_chars || 0} max={memory?.max_chars || 2200} label="CAPACITY" />
+      <Panel title={t('memory.agentMemory')} className="col-span-1">
+        <CapacityBar value={memory?.total_chars || 0} max={memory?.max_chars || 2200} label={t('memory.capacity')} />
         <div className="text-[13px] my-2" style={{ color: 'var(--hud-text-dim)' }}>
-          {memory?.entry_count || 0} entries · {Object.entries(memory?.count_by_category || {}).map(([k,v]) => `${k}(${v})`).join(' ')}
+          {memory?.entry_count || 0} {t('memory.entries')} · {Object.entries(memory?.count_by_category || {}).map(([k,v]) => `${k}(${v})`).join(' ')}
         </div>
         <MemoryEntries entries={memory?.entries || []} />
       </Panel>
 
-      <Panel title="User Profile" className="col-span-1">
-        <CapacityBar value={user?.total_chars || 0} max={user?.max_chars || 1375} label="CAPACITY" />
+      <Panel title={t('memory.userProfile')} className="col-span-1">
+        <CapacityBar value={user?.total_chars || 0} max={user?.max_chars || 1375} label={t('memory.capacity')} />
         <div className="text-[13px] my-2" style={{ color: 'var(--hud-text-dim)' }}>
-          {user?.entry_count || 0} entries
+          {user?.entry_count || 0} {t('memory.entries')}
         </div>
         <MemoryEntries entries={user?.entries || []} />
       </Panel>

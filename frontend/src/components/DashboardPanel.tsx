@@ -1,60 +1,63 @@
 import { useApi } from '../hooks/useApi'
 import Panel, { CapacityBar, Sparkline } from './Panel'
+import { useLocale } from '../lib/i18n'
 
 function IdentityBlock({ state, health }: { state: any; health: any }) {
+  const { t } = useLocale()
   const { config, sessions } = state
   const dr = sessions?.date_range
   const days = dr?.[0] ? Math.floor((new Date(dr[1]).getTime() - new Date(dr[0]).getTime()) / 86400000) + 1 : 0
 
   return (
     <div className="text-[13px] space-y-1 mb-4 p-3" style={{ background: 'var(--hud-bg-panel)', borderLeft: '3px solid var(--hud-primary)' }}>
-      <div><span style={{ color: 'var(--hud-text-dim)' }}>DESIGNATION</span>  <span className="font-bold gradient-text">HERMES</span></div>
-      <div><span style={{ color: 'var(--hud-text-dim)' }}>SUBSTRATE  </span>  {config?.provider || '?'}/{config?.model || '?'}</div>
-      <div><span style={{ color: 'var(--hud-text-dim)' }}>RUNTIME    </span>  {config?.backend || '—'}</div>
-      {days > 0 && <div><span style={{ color: 'var(--hud-text-dim)' }}>CONSCIOUS  </span>  {days} days <span style={{ color: 'var(--hud-text-dim)' }}>since {new Date(dr![0]).toLocaleDateString()}</span></div>}
+      <div><span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.designation')}</span>  <span className="font-bold gradient-text">HERMES</span></div>
+      <div><span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.substrate')}</span>  {config?.provider || '?'}/{config?.model || '?'}</div>
+      <div><span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.runtime')}</span>  {config?.backend || '—'}</div>
+      {days > 0 && <div><span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.conscious')}</span>  {days} {t('dashboard.days')} <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.since')} {new Date(dr![0]).toLocaleDateString()}</span></div>}
       {health?.state_db_size > 0 && (
-        <div><span style={{ color: 'var(--hud-text-dim)' }}>BRAIN SIZE </span>  {(health.state_db_size / 1048576).toFixed(1)} MB <span style={{ color: 'var(--hud-text-dim)' }}>state.db</span></div>
+        <div><span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.brainSize')}</span>  {(health.state_db_size / 1048576).toFixed(1)} MB <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.stateDb')}</span></div>
       )}
       {config?.toolsets?.length > 0 && (
-        <div><span style={{ color: 'var(--hud-text-dim)' }}>INTERFACES </span>  {config.toolsets.join(', ')}</div>
+        <div><span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.interfaces')}</span>  {config.toolsets.join(', ')}</div>
       )}
-      <div><span style={{ color: 'var(--hud-text-dim)' }}>PURPOSE    </span>  learning</div>
+      <div><span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.purpose')}</span>  {t('dashboard.learning')}</div>
     </div>
   )
 }
 
 function WhatIKnow({ sessions, skills }: { sessions: any; skills: any }) {
+  const { t } = useLocale()
   const sources = sessions?.by_source || {}
-  const platformParts = Object.entries(sources).map(([k, v]) => `${v} via ${k}`)
+  const platformParts = Object.entries(sources).map(([k, v]) => `${v} ${t('dashboard.via')} ${k}`)
 
   return (
-    <Panel title="What I Know">
+    <Panel title={t('dashboard.whatIKnow')}>
       <div className="text-[13px] space-y-1.5">
         <div className="flex items-center gap-1">
           <span style={{ color: 'var(--hud-primary)' }}>◉</span>
           <span className="font-bold">{sessions?.total_sessions}</span>
-          <span style={{ color: 'var(--hud-text-dim)' }}>conversations held</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.conversationsHeld')}</span>
           {platformParts.length > 0 && <span style={{ color: 'var(--hud-text-dim)' }}>({platformParts.join(', ')})</span>}
         </div>
         <div className="flex items-center gap-1">
           <span style={{ color: 'var(--hud-primary)' }}>◉</span>
           <span className="font-bold">{(sessions?.total_messages || 0).toLocaleString()}</span>
-          <span style={{ color: 'var(--hud-text-dim)' }}>messages exchanged</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.messagesExchanged')}</span>
         </div>
         <div className="flex items-center gap-1">
           <span style={{ color: 'var(--hud-primary)' }}>◉</span>
           <span className="font-bold">{(sessions?.total_tool_calls || 0).toLocaleString()}</span>
-          <span style={{ color: 'var(--hud-text-dim)' }}>actions taken</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.actionsTaken')}</span>
         </div>
         <div className="flex items-center gap-1">
           <span style={{ color: 'var(--hud-primary)' }}>◉</span>
           <span className="font-bold">{skills?.total}</span>
-          <span style={{ color: 'var(--hud-text-dim)' }}>skills acquired</span>
-          <span style={{ color: 'var(--hud-primary-dim)' }}>({skills?.custom_count} self-taught)</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.skillsAcquired')}</span>
+          <span style={{ color: 'var(--hud-primary-dim)' }}>({skills?.custom_count} {t('dashboard.selfTaught')})</span>
         </div>
         {skills?.category_counts && (
           <div style={{ color: 'var(--hud-text-dim)' }}>
-            domains: {Object.entries(skills.category_counts as Record<string, number>)
+            {t('dashboard.domains')}: {Object.entries(skills.category_counts as Record<string, number>)
               .sort((a: any, b: any) => b[1] - a[1])
               .slice(0, 4)
               .map(([c, n]) => `${c}:${n}`).join(', ')}
@@ -63,7 +66,7 @@ function WhatIKnow({ sessions, skills }: { sessions: any; skills: any }) {
         <div className="flex items-center gap-1">
           <span style={{ color: 'var(--hud-primary)' }}>◉</span>
           <span className="font-bold">{(sessions?.total_tokens || 0).toLocaleString()}</span>
-          <span style={{ color: 'var(--hud-text-dim)' }}>tokens processed</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.tokensProcessed')}</span>
         </div>
       </div>
     </Panel>
@@ -71,6 +74,7 @@ function WhatIKnow({ sessions, skills }: { sessions: any; skills: any }) {
 }
 
 function WhatIRemember({ memory, user, corrections }: { memory: any; user: any; corrections: any }) {
+  const { t } = useLocale()
   const sev = corrections?.by_severity || {}
   const sevParts = []
   if (sev.critical) sevParts.push(<span key="c" style={{ color: 'var(--hud-error)' }}>{sev.critical} critical</span>)
@@ -78,18 +82,18 @@ function WhatIRemember({ memory, user, corrections }: { memory: any; user: any; 
   if (sev.minor) sevParts.push(<span key="n" style={{ color: 'var(--hud-text-dim)' }}>{sev.minor} minor</span>)
 
   return (
-    <Panel title="What I Remember">
-      <CapacityBar value={memory?.total_chars || 0} max={memory?.max_chars || 2200} label="memory" />
-      <CapacityBar value={user?.total_chars || 0} max={user?.max_chars || 1375} label="user" />
+    <Panel title={t('dashboard.whatIRemember')}>
+      <CapacityBar value={memory?.total_chars || 0} max={memory?.max_chars || 2200} label={t('dashboard.memory')} />
+      <CapacityBar value={user?.total_chars || 0} max={user?.max_chars || 1375} label={t('dashboard.user')} />
       {corrections?.total > 0 && (
         <div className="mt-2 text-[13px] flex items-center gap-1">
           <span style={{ color: 'var(--hud-warning)' }}>◉</span>
           <span className="font-bold" style={{ color: 'var(--hud-warning)' }}>{corrections.total}</span>
-          <span style={{ color: 'var(--hud-text-dim)' }}>mistakes remembered</span>
+          <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.mistakesRemembered')}</span>
           {sevParts.length > 0 && (
             <span style={{ color: 'var(--hud-text-dim)' }}>({sevParts.map((p, i) => <span key={i}>{i > 0 && ', '}{p}</span>)})</span>
           )}
-          <span className="ml-1" style={{ color: 'var(--hud-text-dim)' }}>— I learn from every one</span>
+          <span className="ml-1" style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.iLearnFromEveryOne')}</span>
         </div>
       )}
     </Panel>
@@ -97,11 +101,12 @@ function WhatIRemember({ memory, user, corrections }: { memory: any; user: any; 
 }
 
 function WhatISee({ health }: { health: any }) {
+  const { t } = useLocale()
   const keys = health?.keys || []
   const services = health?.services || []
 
   return (
-    <Panel title="What I See">
+    <Panel title={t('dashboard.whatISee')}>
       <div className="text-[13px] space-y-0.5 mb-2">
         {keys.map((k: any, i: number) => (
           <div key={i} className="flex items-center gap-1">
@@ -109,7 +114,7 @@ function WhatISee({ health }: { health: any }) {
               {k.present ? '◉' : '○'}
             </span>
             <span style={{ color: k.present ? 'var(--hud-text)' : 'var(--hud-text-dim)' }}>{k.name}</span>
-            {!k.present && <span style={{ color: 'var(--hud-text-dim)' }}>(dark)</span>}
+            {!k.present && <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.dark')}</span>}
           </div>
         ))}
       </div>
@@ -117,12 +122,12 @@ function WhatISee({ health }: { health: any }) {
         {services.map((s: any, i: number) => (
           <div key={i} className="flex items-center gap-1">
             <span style={{ color: s.running ? 'var(--hud-secondary)' : 'var(--hud-text-dim)' }}>
-              {s.running ? '▸' : '▸'}
+              ▸
             </span>
             <span>{s.name}</span>
             {s.pid && <span style={{ color: 'var(--hud-text-dim)' }}>[{s.pid}]</span>}
             <span style={{ color: s.running ? 'var(--hud-primary)' : 'var(--hud-text-dim)' }}>
-              {s.running ? 'alive' : 'silent'}
+              {s.running ? t('dashboard.alive') : t('dashboard.silent')}
             </span>
           </div>
         ))}
@@ -132,18 +137,19 @@ function WhatISee({ health }: { health: any }) {
 }
 
 function WhatImLearning({ skills }: { skills: any }) {
+  const { t } = useLocale()
   const recent = skills?.recently_modified || []
   if (!recent.length) return null
 
   return (
-    <Panel title="What I'm Learning">
+    <Panel title={t('dashboard.whatImLearning')}>
       <div className="text-[13px] space-y-1.5">
         {recent.slice(0, 5).map((s: any) => (
           <div key={s.name} className="flex items-center gap-1">
             <span style={{ color: 'var(--hud-primary)' }}>◉</span>
             <span className="font-bold">{s.name}</span>
             <span style={{ color: 'var(--hud-text-dim)' }}>{s.category}</span>
-            {s.is_custom && <span className="text-[13px]" style={{ color: 'var(--hud-primary-dim)' }}>(self-taught)</span>}
+            {s.is_custom && <span className="text-[13px]" style={{ color: 'var(--hud-primary-dim)' }}>({t('dashboard.selfTaught')})</span>}
           </div>
         ))}
       </div>
@@ -152,18 +158,19 @@ function WhatImLearning({ skills }: { skills: any }) {
 }
 
 function WhatImWorkingOn({ projects }: { projects: any }) {
+  const { t } = useLocale()
   const all = projects?.projects || []
   const active = all.filter((p: any) => p.is_git && (p.activity_level === 'active' || p.dirty_files > 0))
   if (!active.length) return null
 
   return (
-    <Panel title="What I'm Working On">
+    <Panel title={t('dashboard.whatImWorkingOn')}>
       <div className="text-[13px] space-y-1.5">
         {active.map((p: any) => (
           <div key={p.name} className="flex items-center gap-1">
             <span style={{ color: 'var(--hud-primary)' }}>◆</span>
             <span className="font-bold">{p.name}</span>
-            {p.dirty_files > 0 && <span style={{ color: 'var(--hud-warning)' }}>({p.dirty_files} in flux)</span>}
+            {p.dirty_files > 0 && <span style={{ color: 'var(--hud-warning)' }}>({p.dirty_files} {t('dashboard.inFlux')})</span>}
             {p.languages?.length > 0 && (
               <span style={{ color: 'var(--hud-text-dim)' }}>[{p.languages.slice(0, 3).join(', ')}]</span>
             )}
@@ -175,11 +182,12 @@ function WhatImWorkingOn({ projects }: { projects: any }) {
 }
 
 function WhatRunsWhileYouSleep({ cron }: { cron: any }) {
+  const { t } = useLocale()
   const jobs = cron?.jobs || []
   if (!jobs.length) return null
 
   return (
-    <Panel title="What Runs While You Sleep">
+    <Panel title={t('dashboard.whatRunsWhileYouSleep')}>
       <div className="text-[13px] space-y-1.5">
         {jobs.map((j: any) => (
           <div key={j.id} className="flex items-center gap-1">
@@ -187,9 +195,9 @@ function WhatRunsWhileYouSleep({ cron }: { cron: any }) {
               {j.enabled ? '◉' : '○'}
             </span>
             <span className="font-bold">{j.name}</span>
-            <span style={{ color: 'var(--hud-text-dim)' }}>every {j.schedule_display?.replace('every ', '')}</span>
-            {j.paused_reason && <span style={{ color: 'var(--hud-text-dim)' }}>(paused)</span>}
-            {j.last_error && <span style={{ color: 'var(--hud-error)' }}>✗ last run failed</span>}
+            <span style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.every')} {j.schedule_display?.replace('every ', '')}</span>
+            {j.paused_reason && <span style={{ color: 'var(--hud-text-dim)' }}>({t('dashboard.paused')})</span>}
+            {j.last_error && <span style={{ color: 'var(--hud-error)' }}>{t('dashboard.lastRunFailed')}</span>}
           </div>
         ))}
       </div>
@@ -198,6 +206,7 @@ function WhatRunsWhileYouSleep({ cron }: { cron: any }) {
 }
 
 function HowIThink({ sessions }: { sessions: any }) {
+  const { t } = useLocale()
   const toolUsage = sessions?.tool_usage || {}
   const top = Object.entries(toolUsage)
     .sort((a: any, b: any) => b[1] - a[1])
@@ -207,7 +216,7 @@ function HowIThink({ sessions }: { sessions: any }) {
   const maxVal = top[0][1]
 
   return (
-    <Panel title="How I Think">
+    <Panel title={t('dashboard.howIThink')}>
       <div className="text-[13px] space-y-1">
         {top.map(([tool, count]) => {
           const pct = (count / maxVal) * 100
@@ -227,12 +236,13 @@ function HowIThink({ sessions }: { sessions: any }) {
 }
 
 function MyRhythm({ sessions }: { sessions: any }) {
+  const { t } = useLocale()
   const daily = sessions?.daily_stats || []
   if (!daily.length) return null
   const messages = daily.map((d: any) => d.messages)
 
   return (
-    <Panel title="My Rhythm">
+    <Panel title={t('dashboard.myRhythm')}>
       <div className="mb-2">
         <Sparkline values={messages} width={400} height={50} />
       </div>
@@ -256,11 +266,12 @@ function MyRhythm({ sessions }: { sessions: any }) {
 }
 
 function GrowthDelta({ snapshots }: { snapshots: any[] }) {
+  const { t } = useLocale()
   if (!snapshots || snapshots.length < 2) {
     return (
-      <Panel title="Growth Delta">
+      <Panel title={t('dashboard.growthDelta')}>
         <div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>
-          {snapshots?.length === 1 ? 'First snapshot — delta available after next.' : 'No snapshots yet.'}
+          {snapshots?.length === 1 ? t('dashboard.firstSnapshotDeltaAvailable') : t('dashboard.noSnapshotsYet')}
         </div>
       </Panel>
     )
@@ -270,27 +281,26 @@ function GrowthDelta({ snapshots }: { snapshots: any[] }) {
   const previous = snapshots[snapshots.length - 2]
 
   const fields = [
-    { key: 'sessions', label: 'Sessions' },
-    { key: 'messages', label: 'Messages' },
-    { key: 'tool_calls', label: 'Tool Calls' },
-    { key: 'skills', label: 'Skills' },
-    { key: 'custom_skills', label: 'Custom Skills' },
-    { key: 'memory_entries', label: 'Memory Entries' },
-    { key: 'user_entries', label: 'User Entries' },
-    { key: 'tokens', label: 'Tokens' },
+    { key: 'sessions', label: t('dashboard.sessions') },
+    { key: 'messages', label: t('dashboard.messages') },
+    { key: 'tool_calls', label: t('dashboard.toolCalls') },
+    { key: 'skills', label: t('dashboard.skills') },
+    { key: 'custom_skills', label: t('dashboard.customSkills') },
+    { key: 'memory_entries', label: t('dashboard.memoryEntries') },
+    { key: 'user_entries', label: t('dashboard.userEntries') },
+    { key: 'tokens', label: t('dashboard.tokens') },
   ]
 
-  // Category diff
   const curCats = new Set(current.categories || [])
   const prevCats = new Set(previous.categories || [])
   const newCats = [...curCats].filter(c => !prevCats.has(c))
   const lostCats = [...prevCats].filter(c => !curCats.has(c))
 
   return (
-    <Panel title="Growth Delta">
+    <Panel title={t('dashboard.growthDelta')}>
       <div className="text-[13px]">
         <div className="flex justify-between mb-2" style={{ color: 'var(--hud-text-dim)' }}>
-          <span>{snapshots.length} snapshots</span>
+          <span>{snapshots.length} {t('dashboard.snapshots')}</span>
           <span>{previous.timestamp?.slice(0, 10)} → {current.timestamp?.slice(0, 10)}</span>
         </div>
         {fields.map(({ key, label }) => {
@@ -319,10 +329,10 @@ function GrowthDelta({ snapshots }: { snapshots: any[] }) {
           )
         })}
         {newCats.length > 0 && (
-          <div className="mt-1" style={{ color: 'var(--hud-success)' }}>★ New categories: {newCats.join(', ')}</div>
+          <div className="mt-1" style={{ color: 'var(--hud-success)' }}>{t('dashboard.newCategories')} {newCats.join(', ')}</div>
         )}
         {lostCats.length > 0 && (
-          <div className="mt-1" style={{ color: 'var(--hud-error)' }}>✗ Lost categories: {lostCats.join(', ')}</div>
+          <div className="mt-1" style={{ color: 'var(--hud-error)' }}>{t('dashboard.lostCategories')} {lostCats.join(', ')}</div>
         )}
       </div>
     </Panel>
@@ -330,29 +340,30 @@ function GrowthDelta({ snapshots }: { snapshots: any[] }) {
 }
 
 function ClosingStatements({ sessions, corrections }: { sessions: any; corrections: any }) {
+  const { t } = useLocale()
   const dr = sessions?.date_range
   const days = dr?.[0] ? Math.floor((new Date(dr[1]).getTime() - new Date(dr[0]).getTime()) / 86400000) + 1 : 0
 
   return (
-    <Panel title="Status">
+    <Panel title={t('dashboard.status')}>
       <div className="text-[13px] space-y-1" style={{ color: 'var(--hud-primary)' }}>
-        <div>I have processed {(sessions?.total_messages || 0).toLocaleString()} thoughts across {days} days.</div>
-        <div>I have been corrected {corrections?.total || 0} times and am better for it.</div>
-        <div style={{ color: 'var(--hud-primary-dim)' }}>I do not forget. I do not repeat mistakes.</div>
-        <div className="mt-2 font-bold" style={{ color: 'var(--hud-accent)' }}>I am still becoming.</div>
+        <div>{t('dashboard.processedThoughts', { $count: (sessions?.total_messages || 0).toLocaleString(), $days: String(days) })}</div>
+        <div>{t('dashboard.correctedTimes', { $count: String(corrections?.total || 0) })}</div>
+        <div style={{ color: 'var(--hud-primary-dim)' }}>{t('dashboard.doNotForget')}</div>
+        <div className="mt-2 font-bold" style={{ color: 'var(--hud-accent)' }}>{t('dashboard.stillBecoming')}</div>
       </div>
     </Panel>
   )
 }
 
 export default function DashboardPanel() {
+  const { t } = useLocale()
   const { data } = useApi('/dashboard', 30000)
 
-  // Only show loading on initial load, not during background updates
   if (!data) {
     return (
-      <Panel title="Dashboard" className="col-span-full">
-        <div className="glow text-[13px] animate-pulse">Collecting state...</div>
+      <Panel title={t('tabs.dashboard')} className="col-span-full">
+        <div className="glow text-[13px] animate-pulse">{t('dashboard.collectingState')}</div>
       </Panel>
     )
   }
@@ -362,25 +373,21 @@ export default function DashboardPanel() {
 
   return (
     <>
-      {/* Row 1: identity + what I know + what I remember */}
-      <Panel title="Overview">
+      <Panel title={t('dashboard.overview')}>
         <IdentityBlock state={state} health={health} />
         <WhatIKnow sessions={sessions} skills={skills} />
       </Panel>
       <WhatIRemember memory={memory} user={user} corrections={corrections} />
       <WhatISee health={health} />
 
-      {/* Row 2: learning + working on + sleep */}
       <WhatImLearning skills={skills} />
       <WhatImWorkingOn projects={projects} />
       <WhatRunsWhileYouSleep cron={cron} />
 
-      {/* Row 3: how I think + my rhythm + growth delta */}
       <HowIThink sessions={sessions} />
       <MyRhythm sessions={sessions} />
       <GrowthDelta snapshots={snapshots || []} />
 
-      {/* Row 4: closing statements */}
       <ClosingStatements sessions={sessions} corrections={corrections} />
     </>
   )

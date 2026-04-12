@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useTheme, THEMES } from '../hooks/useTheme'
+import { useLocale } from '../lib/i18n'
 
 export const TABS = [
-  { id: 'dashboard', label: 'Dashboard', key: '1' },
-  { id: 'memory', label: 'Memory', key: '2' },
-  { id: 'skills', label: 'Skills', key: '3' },
-  { id: 'sessions', label: 'Sessions', key: '4' },
-  { id: 'cron', label: 'Cron', key: '5' },
-  { id: 'projects', label: 'Projects', key: '6' },
-  { id: 'health', label: 'Health', key: '7' },
-  { id: 'agents', label: 'Agents', key: '8' },
-  { id: 'chat', label: 'Chat', key: '9' },
-  { id: 'profiles', label: 'Profiles', key: '0' },
-  { id: 'token-costs', label: 'Costs', key: null },  // Click only, no hotkey
-  { id: 'corrections', label: 'Corrections', key: null },
-  { id: 'patterns', label: 'Patterns', key: null },
+  { id: 'dashboard', labelKey: 'tabs.dashboard', key: '1' },
+  { id: 'memory', labelKey: 'tabs.memory', key: '2' },
+  { id: 'skills', labelKey: 'tabs.skills', key: '3' },
+  { id: 'sessions', labelKey: 'tabs.sessions', key: '4' },
+  { id: 'cron', labelKey: 'tabs.cron', key: '5' },
+  { id: 'projects', labelKey: 'tabs.projects', key: '6' },
+  { id: 'health', labelKey: 'tabs.health', key: '7' },
+  { id: 'agents', labelKey: 'tabs.agents', key: '8' },
+  { id: 'chat', labelKey: 'tabs.chat', key: '9' },
+  { id: 'profiles', labelKey: 'tabs.profiles', key: '0' },
+  { id: 'token-costs', labelKey: 'tabs.token-costs', key: null },
+  { id: 'corrections', labelKey: 'tabs.corrections', key: null },
+  { id: 'patterns', labelKey: 'tabs.patterns', key: null },
 ] as const
 
 export type TabId = typeof TABS[number]['id']
@@ -26,12 +27,14 @@ interface TopBarProps {
 
 export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
   const { theme, setTheme, scanlines, setScanlines } = useTheme()
+  const { locale, setLocale, t } = useLocale()
   const [showThemePicker, setShowThemePicker] = useState(false)
+  const [showLangPicker, setShowLangPicker] = useState(false)
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(t)
+    const t2 = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(t2)
   }, [])
 
   // Keyboard shortcuts
@@ -41,24 +44,13 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
       if (e.metaKey || e.ctrlKey || e.altKey) return
 
-      // 1-9 for tabs (only tabs with numeric keys)
       const num = parseInt(e.key)
       if (!isNaN(num) && num >= 1 && num <= 9) {
-        const tab = TABS.find(t => t.key === String(num))
-        if (tab) {
-          onTabChange(tab.id)
-          return
-        }
+        const tab = TABS.find(tb => tb.key === String(num))
+        if (tab) { onTabChange(tab.id); return }
       }
-      // 0 for Profiles (10th tab with key '0')
-      if (e.key === '0') {
-        onTabChange('profiles')
-        return
-      }
-      // T to toggle theme picker
-      if (e.key === 't') {
-        setShowThemePicker(p => !p)
-      }
+      if (e.key === '0') { onTabChange('profiles'); return }
+      if (e.key === 't') setShowThemePicker(p => !p)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -87,9 +79,48 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
             }}
           >
             {tab.key && <span className="opacity-40 mr-1">{tab.key}</span>}
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
+      </div>
+
+      {/* Language picker */}
+      <div className="relative shrink-0">
+        <button
+          onClick={() => setShowLangPicker(p => !p)}
+          className="px-2 py-1.5 text-[13px] tracking-wider uppercase cursor-pointer"
+          style={{ color: 'var(--hud-text-dim)', minHeight: '32px' }}
+          title={t('lang.language')}
+        >
+          {locale === 'zh' ? '中' : 'EN'}
+        </button>
+        {showLangPicker && (
+          <div className="absolute right-0 top-full mt-1 z-50 py-1 min-w-[120px]"
+               style={{ background: 'var(--hud-bg-panel)', border: '1px solid var(--hud-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+            <button
+              onClick={() => { setLocale('en'); setShowLangPicker(false) }}
+              className="block w-full text-left px-3 py-2 text-[13px] cursor-pointer"
+              style={{
+                color: locale === 'en' ? 'var(--hud-primary)' : 'var(--hud-text)',
+                background: locale === 'en' ? 'var(--hud-bg-hover)' : 'transparent',
+                minHeight: '36px',
+              }}
+            >
+              EN English
+            </button>
+            <button
+              onClick={() => { setLocale('zh'); setShowLangPicker(false) }}
+              className="block w-full text-left px-3 py-2 text-[13px] cursor-pointer"
+              style={{
+                color: locale === 'zh' ? 'var(--hud-primary)' : 'var(--hud-text)',
+                background: locale === 'zh' ? 'var(--hud-bg-hover)' : 'transparent',
+                minHeight: '36px',
+              }}
+            >
+              中文
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Theme picker */}
@@ -105,18 +136,18 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
         {showThemePicker && (
           <div className="absolute right-0 top-full mt-1 z-50 py-1 min-w-[180px]"
                style={{ background: 'var(--hud-bg-panel)', border: '1px solid var(--hud-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
-            {THEMES.map(t => (
+            {THEMES.map(th => (
               <button
-                key={t.id}
-                onClick={() => { setTheme(t.id); setShowThemePicker(false) }}
+                key={th.id}
+                onClick={() => { setTheme(th.id); setShowThemePicker(false) }}
                 className="block w-full text-left px-3 py-2 text-[13px] transition-colors cursor-pointer"
                 style={{
-                  color: theme === t.id ? 'var(--hud-primary)' : 'var(--hud-text)',
-                  background: theme === t.id ? 'var(--hud-bg-hover)' : 'transparent',
+                  color: theme === th.id ? 'var(--hud-primary)' : 'var(--hud-text)',
+                  background: theme === th.id ? 'var(--hud-bg-hover)' : 'transparent',
                   minHeight: '36px',
                 }}
               >
-                {t.icon} {t.label}
+                {th.icon} {th.label}
               </button>
             ))}
             <div className="border-t my-1" style={{ borderColor: 'var(--hud-border)' }} />
@@ -125,7 +156,7 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
               className="block w-full text-left px-3 py-2 text-[13px] cursor-pointer"
               style={{ color: 'var(--hud-text-dim)', minHeight: '36px' }}
             >
-              {scanlines ? '▣' : '□'} Scanlines
+              {scanlines ? '▣' : '□'} {t('theme.scanlines')}
             </button>
           </div>
         )}
@@ -133,7 +164,7 @@ export default function TopBar({ activeTab, onTabChange }: TopBarProps) {
 
       {/* Clock */}
       <span className="text-[13px] ml-2 tabular-nums shrink-0 hidden sm:inline" style={{ color: 'var(--hud-text-dim)' }}>
-        {time.toLocaleTimeString('en-US', { hour12: false })}
+        {time.toLocaleTimeString(locale === 'zh' ? 'zh-CN' : 'en-US', { hour12: false })}
       </span>
     </div>
   )

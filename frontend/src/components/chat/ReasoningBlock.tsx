@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useLocale } from '../../lib/i18n'
 
 interface ReasoningBlockProps {
   content: string
 }
 
 export default function ReasoningBlock({ content }: ReasoningBlockProps) {
+  const { t } = useLocale()
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -21,7 +23,7 @@ export default function ReasoningBlock({ content }: ReasoningBlockProps) {
       >
         <span style={{ color: 'var(--hud-warning)' }}>🧠</span>
         <span style={{ color: 'var(--hud-warning)', fontSize: '12px' }}>
-          {expanded ? 'Thinking...' : 'Thinking (click to expand)'}
+          {expanded ? t('reasoning.thinking') : t('reasoning.thinkingClickToExpand')}
         </span>
         <span style={{ color: 'var(--hud-text-dim)', fontSize: '11px' }} className="ml-auto">
           {expanded ? '▼' : '▶'}
