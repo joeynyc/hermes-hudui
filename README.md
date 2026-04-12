@@ -1,177 +1,58 @@
 # ☤ Hermes HUD — Web UI
 
-A browser-based consciousness monitor for [Hermes](https://github.com/nousresearch/hermes-agent), the AI agent with persistent memory.
+A browser-based dashboard for [Hermes](https://github.com/nousresearch/hermes-agent), the AI agent with persistent memory.
 
-Same data, same soul, same dashboard that made the [TUI version](https://github.com/joeynyc/hermes-hud) popular — now in your browser.
-
+Same data, same soul — now in your browser.
 
 ![Token Costs](assets/dashboard-costs.png)
 
 ![Agent Profiles](assets/profiles.png)
-
-## What It Shows
-
-Everything your agent knows about itself, across 13 tabs:
-
-| Tab | What You See |
-|-----|-------------|
-| **Dashboard** | Identity, conversation stats, memory bars, service health, recent skills, active projects, cron jobs, tool usage, daily sparkline |
-| **Memory** | Agent memory + user profile capacity bars, entries by category |
-| **Skills** | Category breakdown, skill details with source paths, custom skill badges |
-| **Sessions** | Session history with message/token counts, source breakdown, daily sparklines |
-| **Cron** | Scheduled jobs with schedule, last/next run, delivery target, prompt preview |
-| **Projects** | Repos grouped by activity (active/recent/stale), branch, dirty files, languages |
-| **Health** | API key status, service health with PIDs, provider/model info |
-| **Agents** | Live/idle processes, operator alert queue, recent session history |
-| **Chat** | Live chat with the agent — SSE streaming, multiple sessions, tool call visibility, reasoning display |
-| **Profiles** | Full profile cards — model, provider, gateway status, soul summary, toolsets |
-| **Costs** | Per-model USD cost estimates, daily trend, input/output/cache breakdown |
-| **Corrections** | Corrections grouped by severity (critical/major/minor) with timestamps |
-| **Patterns** | Task clusters, hourly activity heatmap, repeated prompts flagged as skill candidates |
-
-## Real-Time Updates
-
-The HUD updates instantly when your agent's data changes. No manual refresh needed.
-
-- **WebSocket** — Live connection broadcasts changes as they happen
-- **Smart Caching** — Backend caches expensive operations (sessions, skills, patterns) with automatic invalidation when files change
-- **Silent Updates** — Data refreshes in the background without loading flashes or UI blinking
-- **Live Indicator** — "● live" badge in the status bar shows when real-time connection is active
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/joeynyc/hermes-hudui.git
 cd hermes-hudui
-python3.11 -m venv venv
-source venv/bin/activate
 ./install.sh
 hermes-hudui
 ```
 
 Open http://localhost:3001
 
-On future runs, just activate and start:
+**Requirements:** Python 3.11+, Node.js 18+, a running Hermes agent with data in `~/.hermes/`
 
+On future runs:
 ```bash
-source venv/bin/activate
-hermes-hudui
+source venv/bin/activate && hermes-hudui
 ```
 
-## Requirements
+## What's Inside
 
-- Python 3.11+
-- Node.js 18+ (for building the frontend)
-- A running Hermes agent with data in `~/.hermes/`
+13 tabs covering everything your agent knows about itself — identity, memory, skills, sessions, cron jobs, projects, health, costs, patterns, corrections, and live chat.
 
-No other packages required — the Web UI reads directly from your agent's data directory.
-
-## Manual Install
-
-```bash
-# 1. Create and activate virtual environment
-python3.11 -m venv venv
-source venv/bin/activate
-
-# 2. Install this package
-pip install -e .
-
-# 3. Build the frontend
-cd frontend
-npm install
-npm run build
-cp -r dist/* ../backend/static/
-
-# 4. Start the server
-hermes-hudui
-```
+Updates in real-time via WebSocket. No manual refresh needed.
 
 ## Themes
 
-Four color themes, switchable with `t` key or the theme picker:
-
-| Theme | Key | Mood |
-|-------|-----|------|
-| **Neural Awakening** | `ai` | Cyan/blue on deep navy. Clean, clinical intelligence. |
-| **Blade Runner** | `blade-runner` | Amber/orange on warm black. Neo-noir dystopia. |
-| **fsociety** | `fsociety` | Green on pure black. Raw hacker aesthetic. |
-| **Anime** | `anime` | Purple/violet on indigo. Psychic energy. |
-
-Optional CRT scanline overlay — toggle via theme picker.
+Four themes switchable with `t`: **Neural Awakening** (cyan), **Blade Runner** (amber), **fsociety** (green), **Anime** (purple). Optional CRT scanlines.
 
 ## Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
-| `1`–`9`, `0` | Switch tabs (Dashboard through Profiles) |
-| `t` | Toggle theme picker |
+| `1`–`9`, `0` | Switch tabs |
+| `t` | Theme picker |
 | `Ctrl+K` | Command palette |
-
-Corrections and Patterns tabs are click-only (no hotkey — more than 10 tabs).
-
-## Architecture
-
-```
-React Frontend (Vite + SWR)
-    ↓ /api/* (proxied in dev) + WebSocket /ws
-FastAPI Backend (Python)
-    ↓ collectors/*.py + cache + file watcher
-~/.hermes/ (agent data files)
-```
-
-**Backend:**
-- **Collectors** — Read from `~/.hermes/` and return dataclasses
-- **Caching** — Intelligent cache with mtime-based invalidation (sessions: 30s, skills: 60s, patterns: 60s, profiles: 45s TTL)
-- **File Watcher** — Watches `~/.hermes/` for changes using `watchfiles`
-- **WebSocket** — Broadcasts `data_changed` events to all connected clients
-
-**Frontend:**
-- **SWR** — Fetches from `/api/*` with `keepPreviousData` for silent background updates
-- **WebSocket Hook** — Auto-reconnect with exponential backoff, triggers SWR revalidation on change events
-- **Panels** — One component per tab, shows stale data during refresh (no loading flashes)
-- **Chat** — SSE streaming via `EventSource`, per-session message cache in `useChat.ts`, fixed-height layout with internal scroll
-
-**Chat Engine (`backend/chat/engine.py`):**
-- Singleton that spawns `hermes chat -q <message> -Q --source tool` per message
-- Streams stdout line-by-line, filters TUI box-drawing decoration via regex
-- Sessions are isolated client-side — no server-side message persistence
-
-## Token Cost Pricing
-
-Costs are calculated from token counts using hardcoded per-model pricing. Supported models:
-
-| Provider | Model | Input | Output | Cache Read |
-|----------|-------|------:|-------:|-----------:|
-| Anthropic | Claude Opus 4 | $15/M | $75/M | $1.50/M |
-| Anthropic | Claude Sonnet 4 | $3/M | $15/M | $0.30/M |
-| Anthropic | Claude Haiku 3.5 | $0.80/M | $4/M | $0.08/M |
-| OpenAI | GPT-4o | $2.50/M | $10/M | $1.25/M |
-| OpenAI | o1 | $15/M | $60/M | $7.50/M |
-| DeepSeek | V3 | $0.27/M | $1.10/M | $0.07/M |
-| xAI | Grok 3 | $3/M | $15/M | $0.75/M |
-| Google | Gemini 2.5 Pro | $1.25/M | $10/M | $0.31/M |
-
-Models not in the table fall back to Claude Opus pricing. Local/free models are detected and priced at $0.
-
-## Relationship to the TUI
-
-This is the browser companion to [hermes-hud](https://github.com/joeynyc/hermes-hud). Both read from the same `~/.hermes/` data directory independently. You can use either one, or both at the same time.
-
-The Web UI is fully standalone — it ships its own data collectors and doesn't require the TUI package. It adds features the TUI doesn't have: dedicated Memory, Skills, and Sessions tabs; per-model token cost tracking; command palette; theme switcher with live preview.
-
-If you also have the TUI installed (`pip install hermes-hud`), you can enable it with `pip install hermes-hudui[tui]`.
 
 ## Platform Support
 
-- **macOS** — native, install via `./install.sh`
-- **Linux** — native, install via `./install.sh`
-- **Windows** — via WSL (Windows Subsystem for Linux)
-- **WSL** — install script detects WSL automatically
+macOS · Linux · WSL
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-## Star History
+
+---
 
 <a href="https://www.star-history.com/?repos=joeynyc%2Fhermes-hudui&type=date&logscale=&legend=top-left">
  <picture>
