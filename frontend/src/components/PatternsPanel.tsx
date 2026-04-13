@@ -1,5 +1,6 @@
 import { useApi } from '../hooks/useApi'
 import Panel from './Panel'
+import { useTranslation } from '../i18n'
 
 function HourlyHeatmap({ data }: { data: any[] }) {
   if (!data?.length) return null
@@ -27,11 +28,12 @@ function HourlyHeatmap({ data }: { data: any[] }) {
 }
 
 export default function PatternsPanel() {
+  const { t } = useTranslation()
   const { data, isLoading } = useApi('/patterns', 60000)
 
   // Only show loading on initial load
   if (isLoading && !data) {
-    return <Panel title="Patterns" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
+    return <Panel title={t('patterns.title')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('patterns.loading')}</div></Panel>
   }
 
   return (

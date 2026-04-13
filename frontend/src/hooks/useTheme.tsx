@@ -16,11 +16,11 @@ const ThemeContext = createContext<ThemeContextValue>({
   setScanlines: () => {},
 })
 
-export const THEMES: { id: ThemeId; label: string; icon: string }[] = [
-  { id: 'ai', label: 'Neural Awakening', icon: '◆' },
-  { id: 'blade-runner', label: 'Blade Runner', icon: '◈' },
-  { id: 'fsociety', label: 'fsociety', icon: '▣' },
-  { id: 'anime', label: 'Anime', icon: '◎' },
+export const THEMES: { id: ThemeId; labelKey: string; icon: string }[] = [
+  { id: 'ai', labelKey: 'theme.neuralAwakening', icon: '◆' },
+  { id: 'blade-runner', labelKey: 'theme.bladeRunner', icon: '◈' },
+  { id: 'fsociety', labelKey: 'theme.fsociety', icon: '▣' },
+  { id: 'anime', labelKey: 'theme.anime', icon: '◎' },
 ]
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

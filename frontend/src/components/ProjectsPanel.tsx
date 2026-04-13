@@ -1,5 +1,6 @@
 import { useApi } from '../hooks/useApi'
 import Panel from './Panel'
+import { useTranslation } from '../i18n'
 
 function ProjectCard({ p }: { p: any }) {
   return (
@@ -40,16 +41,17 @@ function ProjectCard({ p }: { p: any }) {
 }
 
 export default function ProjectsPanel() {
+  const { t } = useTranslation()
   const { data, isLoading } = useApi('/projects', 60000)
 
   // Only show loading on initial load
   if (isLoading && !data) {
-    return <Panel title="Projects" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
+    return <Panel title={t('projects.title')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('projects.loading')}</div></Panel>
   }
 
   const all = data.projects || data || []
   if (!Array.isArray(all) || all.length === 0) {
-    return <Panel title="Projects" className="col-span-full"><div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No projects found</div></Panel>
+    return <Panel title={t('projects.title')} className="col-span-full"><div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>{t('projects.noProjects')}</div></Panel>
   }
 
   const { gitRepos, active, recent, stale, noGit, dirtyCount } = all.reduce(
@@ -69,8 +71,8 @@ export default function ProjectsPanel() {
   )
 
   return (
-    <Panel title="Projects" className="col-span-full">
-      {/* Summary line — matching TUI */}
+    <Panel title={t('projects.title')} className="col-span-full">
+      {/* Summary line */}
       <div className="text-[13px] mb-3">
         <span className="font-bold">{all.length}</span> projects
         <span className="mx-2" style={{ color: 'var(--hud-text-dim)' }}>│</span>

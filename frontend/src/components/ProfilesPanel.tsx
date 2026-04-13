@@ -1,6 +1,7 @@
 import { useApi } from '../hooks/useApi'
 import Panel, { CapacityBar } from './Panel'
 import { timeAgo, formatTokens } from '../lib/utils'
+import { useTranslation } from '../i18n'
 
 function StatusDot({ status }: { status: string }) {
   const color = status === 'active' || status === 'running'
@@ -146,7 +147,7 @@ function ProfileCard({ p }: { p: any }) {
           </div>
         )}
 
-        {/* Services */}
+        {/* services */}
         <div className="grid grid-cols-[80px_1fr] gap-1">
           <span style={{ color: 'var(--hud-text-dim)' }}>Gateway</span>
           <span><StatusDot status={p.gateway_status} /> {p.gateway_status}
@@ -178,11 +179,12 @@ function ProfileCard({ p }: { p: any }) {
 }
 
 export default function ProfilesPanel() {
+  const { t } = useTranslation()
   const { data, isLoading } = useApi('/profiles', 30000)
 
   // Only show loading on initial load
   if (isLoading && !data) {
-    return <Panel title="Profiles" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
+    return <Panel title={t('profiles.title')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('profiles.loading')}</div></Panel>
   }
 
   const profiles = data.profiles || []

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useApi } from '../hooks/useApi'
 import Panel, { Sparkline } from './Panel'
 import MessageBubble from './chat/MessageBubble'
+import { useTranslation } from '../i18n'
 
 function sourceColor(source: string) {
   return source === 'telegram' ? 'var(--hud-accent)' : 'var(--hud-primary)'
@@ -13,6 +14,7 @@ const hoverOff = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.s
 // ── Transcript viewer ──────────────────────────────────────────────────────────
 
 function TranscriptViewer({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
+  const { t } = useTranslation()
   const { data, isLoading } = useApi(`/sessions/${sessionId}/messages`, 0)
 
   return (
@@ -46,7 +48,7 @@ function TranscriptViewer({ sessionId, onClose }: { sessionId: string; onClose: 
             className="text-[13px] px-2 py-0.5 cursor-pointer"
             style={{ color: 'var(--hud-text-dim)' }}
           >
-            ✕ Close
+            ✕ {t('sessions.close')}
           </button>
         </div>
 
@@ -54,12 +56,12 @@ function TranscriptViewer({ sessionId, onClose }: { sessionId: string; onClose: 
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {isLoading && (
             <div className="text-[13px] animate-pulse" style={{ color: 'var(--hud-text-dim)' }}>
-              Loading transcript...
+              {t('sessions.loadingTranscript')}
             </div>
           )}
           {!isLoading && data?.messages?.length === 0 && (
             <div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>
-              No messages found.
+              {t('sessions.noMessages')}
             </div>
           )}
           {!isLoading && data?.messages?.map((msg: any) => (
@@ -67,7 +69,7 @@ function TranscriptViewer({ sessionId, onClose }: { sessionId: string; onClose: 
               <MessageBubble role={msg.role} content={msg.content} />
               {msg.token_count > 0 && (
                 <div className="text-[10px] mb-1 text-right" style={{ color: 'var(--hud-text-dim)', marginTop: '-8px' }}>
-                  {msg.token_count.toLocaleString()} tokens
+                  {msg.token_count.toLocaleString()} {t('sessions.tokens')}
                 </div>
               )}
             </div>
@@ -131,6 +133,7 @@ function SearchResults({ query, onSelect }: { query: string; onSelect: (id: stri
 // ── Main panel ─────────────────────────────────────────────────────────────────
 
 export default function SessionsPanel() {
+  const { t } = useTranslation()
   const { data, isLoading } = useApi('/sessions', 30000)
   const [activeTranscript, setActiveTranscript] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -147,7 +150,7 @@ export default function SessionsPanel() {
   }, [])
 
   if (isLoading && !data) {
-    return <Panel title="Sessions" className="col-span-full"><div className="glow text-[13px] animate-pulse">Loading...</div></Panel>
+    return <Panel title={t('sessions.title')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('sessions.loading')}</div></Panel>
   }
 
   const sessions = data.sessions || []
@@ -199,14 +202,14 @@ export default function SessionsPanel() {
         </div>
       </Panel>
 
-      <Panel title="Recent Sessions">
+      <Panel title={t('sessions.title')}>
         {/* Search bar */}
         <form onSubmit={handleSearch} className="flex gap-1 mb-2">
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search sessions..."
+            placeholder={t('sessions.searchSessions')}
             className="flex-1 px-2 py-1 text-[13px] outline-none"
             style={{
               background: 'var(--hud-bg-deep)',

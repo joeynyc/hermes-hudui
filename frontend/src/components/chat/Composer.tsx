@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from '../../i18n'
 
 interface ComposerProps {
   onSend: (message: string) => void
@@ -9,6 +10,7 @@ interface ComposerProps {
 }
 
 export default function Composer({ onSend, onCancel, isStreaming, model, disabled }: ComposerProps) {
+  const { t } = useTranslation()
   const [input, setInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -54,7 +56,7 @@ export default function Composer({ onSend, onCancel, isStreaming, model, disable
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={disabled ? 'Chat not available' : 'Type a message...'}
+          placeholder={disabled ? 'Chat not available' : t('chat.placeholder')}
           disabled={isStreaming || disabled}
           rows={1}
           className="flex-1 px-2 py-1.5 text-[13px] resize-none outline-none"
@@ -92,7 +94,7 @@ export default function Composer({ onSend, onCancel, isStreaming, model, disable
               minHeight: '32px',
             }}
           >
-            Send
+            {t('chat.send')}
           </button>
         )}
       </div>
@@ -102,7 +104,7 @@ export default function Composer({ onSend, onCancel, isStreaming, model, disable
       >
         <span>{model !== 'unknown' ? model : ''}</span>
         <span style={{ color: isStreaming ? 'var(--hud-warning)' : 'var(--hud-text-dim)' }}>
-          {isStreaming ? '● streaming' : 'Enter to send · Shift+Enter newline'}
+          {isStreaming ? t('chat.thinking') : 'Enter to send · Shift+Enter newline'}
         </span>
       </div>
     </div>

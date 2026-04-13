@@ -1,6 +1,7 @@
 import { useApi } from '../hooks/useApi'
 import Panel from './Panel'
 import { formatDur } from '../lib/utils'
+import { useTranslation } from '../i18n'
 
 const SOURCE_STYLES: Record<string, { color: string; label: string }> = {
   cli: { color: 'var(--hud-success)', label: 'cli' },
@@ -9,11 +10,12 @@ const SOURCE_STYLES: Record<string, { color: string; label: string }> = {
 }
 
 export default function AgentsPanel() {
+  const { t } = useTranslation()
   const { data, isLoading } = useApi('/agents', 15000)
 
   // Only show loading on initial load
   if (isLoading && !data) {
-    return <Panel title="Agents" className="col-span-full"><div className="glow text-[13px] animate-pulse">Scanning processes...</div></Panel>
+    return <Panel title={t('agents.title')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('agents.loading')}</div></Panel>
   }
 
   const processes = data.processes || []

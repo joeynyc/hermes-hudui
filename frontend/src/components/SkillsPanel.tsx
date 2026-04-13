@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useApi } from '../hooks/useApi'
 import Panel from './Panel'
 import { timeAgo, formatSize } from '../lib/utils'
+import { useTranslation } from '../i18n'
 
 function SkillItem({ skill, variant }: { skill: any; variant: 'category' | 'recent' }) {
+  const { t } = useTranslation()
   const descLimit = variant === 'category' ? 120 : 100
   return (
     <div className="py-2 px-2 text-[13px]" style={{ borderLeft: '2px solid var(--hud-border)' }}>
@@ -15,7 +17,7 @@ function SkillItem({ skill, variant }: { skill: any; variant: 'category' | 'rece
           </span>
         )}
         {skill.is_custom && (
-          <span className="text-[13px] px-1" style={{ background: 'var(--hud-accent)', color: 'var(--hud-bg-deep)' }}>custom</span>
+          <span className="text-[13px] px-1" style={{ background: 'var(--hud-accent)', color: 'var(--hud-bg-deep)' }}>{t('dashboard.custom')}</span>
         )}
         {variant === 'category' && (
           <span className="text-[13px] ml-auto" style={{ color: 'var(--hud-text-dim)' }}>
@@ -37,12 +39,13 @@ function SkillItem({ skill, variant }: { skill: any; variant: 'category' | 'rece
 }
 
 export default function SkillsPanel() {
+  const { t } = useTranslation()
   const { data, isLoading } = useApi('/skills', 60000)
   const [selectedCat, setSelectedCat] = useState<string | null>(null)
 
   // Only show loading on initial load
   if (isLoading && !data) {
-    return <Panel title="Skills" className="col-span-full"><div className="glow text-[13px] animate-pulse">Scanning skill library...</div></Panel>
+    return <Panel title={t('skills.title')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('skills.scanning')}</div></Panel>
   }
 
   const catCounts: Record<string, number> = data.category_counts || {}
@@ -59,16 +62,16 @@ export default function SkillsPanel() {
   return (
     <>
       {/* Category overview */}
-      <Panel title="Skill Library" className="col-span-1">
+      <Panel title={t('dashboard.skillLibrary')} className="col-span-1">
         <div className="flex gap-2 mb-3">
           <span className="text-[13px] px-2 py-0.5" style={{ background: 'var(--hud-bg-panel)', color: 'var(--hud-primary)' }}>
-            {data.total} total
+            {data.total} {t('dashboard.total')}
           </span>
           <span className="text-[13px] px-2 py-0.5" style={{ background: 'var(--hud-bg-panel)', color: 'var(--hud-accent)' }}>
-            {data.custom_count} custom
+            {data.custom_count} {t('dashboard.custom')}
           </span>
           <span className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>
-            {sorted.length} categories
+            {sorted.length} {t('dashboard.categories')}
           </span>
         </div>
 
@@ -116,18 +119,18 @@ export default function SkillsPanel() {
               <SkillItem key={skill.name} skill={skill} variant="category" />
             ))}
             {catSkills.length === 0 && (
-              <div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No skills in this category</div>
+              <div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.noSkillsInCategory')}</div>
             )}
           </div>
         </Panel>
       ) : (
-        <Panel title="Recently Modified">
+        <Panel title={t('dashboard.recentlyModified')}>
           <div className="space-y-2">
             {recentlyMod.map((skill: any) => (
               <SkillItem key={skill.name} skill={skill} variant="recent" />
             ))}
             {recentlyMod.length === 0 && (
-              <div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>No recent modifications</div>
+              <div className="text-[13px]" style={{ color: 'var(--hud-text-dim)' }}>{t('dashboard.noRecentModifications')}</div>
             )}
           </div>
         </Panel>

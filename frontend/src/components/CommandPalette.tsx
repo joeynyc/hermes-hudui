@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from '../i18n'
 
 interface Command {
   id: string
@@ -13,6 +14,7 @@ interface CommandPaletteProps {
 }
 
 export default function CommandPalette({ commands, onSelect }: CommandPaletteProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -72,7 +74,7 @@ export default function CommandPalette({ commands, onSelect }: CommandPalettePro
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Navigate to..."
+            placeholder={t('commandPalette.placeholder')}
             className="w-full bg-transparent outline-none text-[13px] py-1"
             style={{ color: 'var(--hud-text)' }}
           />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from '../i18n'
 
 const HERMES_ASCII = [
   ' ██╗  ██╗███████╗██████╗ ███╗   ███╗███████╗███████╗',
@@ -9,30 +10,31 @@ const HERMES_ASCII = [
   ' ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝',
 ]
 
-const BOOT_LINES = [
-  '☤ HERMES HUD v0.3.1',
-  '',
-  'Initializing consciousness monitor...',
-  'Reading ~/.hermes/state.db',
-  'Scanning memory banks',
-  'Indexing skill library',
-  'Checking service health',
-  'Profiling agent processes',
-  '',
-  '"I think, therefore I process."',
-  '',
-  'Systems ready.',
-]
-
 interface BootScreenProps {
   onComplete: () => void
 }
 
 export default function BootScreen({ onComplete }: BootScreenProps) {
+  const { t } = useTranslation()
   const [visibleLines, setVisibleLines] = useState(0)
   const [asciiVisible, setAsciiVisible] = useState(false)
   const [fadeOut, setFadeOut] = useState(false)
   const [skipped, setSkipped] = useState(false)
+
+  const BOOT_LINES = [
+    `☤ ${t('boot.version')} v0.3.1`,
+    '',
+    `${t('boot.connecting')}`,
+    'Reading ~/.hermes/state.db',
+    'Scanning memory banks',
+    'Indexing skill library',
+    'Checking service health',
+    'Profiling agent processes',
+    '',
+    '"I think, therefore I process."',
+    '',
+    t('boot.ready') + '.',
+  ]
 
   useEffect(() => {
     const asciiTimer = setTimeout(() => setAsciiVisible(true), 200)
@@ -84,7 +86,7 @@ export default function BootScreen({ onComplete }: BootScreenProps) {
           <div key={i} className="py-0.5" style={{
             color: line.startsWith('"') ? 'var(--hud-accent)' :
                    line.startsWith('☤') ? 'var(--hud-primary)' :
-                   line === 'Systems ready.' ? 'var(--hud-success)' :
+                   line.endsWith('.') ? 'var(--hud-success)' :
                    'var(--hud-text-dim)',
             fontStyle: line.startsWith('"') ? 'italic' : 'normal',
           }}>
