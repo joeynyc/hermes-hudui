@@ -1,0 +1,40 @@
+# VCS / IDE
+.git
+.gitignore
+.github
+.idea
+.vscode
+
+# Python artefacts (rebuilt inside the image)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Frontend artefacts (built inside the image)
+frontend/node_modules/
+frontend/dist/
+backend/static/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local-only state
+*.log
+*.sqlite
+*.sqlite3
+.env
+.env.*
+
+# Docs that don't need to be in the runtime image
+*.md
+!README.md
+docs/
+assets/screenshots/
