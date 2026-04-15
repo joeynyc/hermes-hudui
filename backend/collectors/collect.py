@@ -23,7 +23,9 @@ def collect_all(hermes_dir: str | None = None) -> HUDState:
             collect_memory, hermes_dir,
             config.memory_char_limit, config.user_char_limit,
         )
-        f_skills = pool.submit(collect_skills, hermes_dir)
+        f_skills = pool.submit(
+            collect_skills, hermes_dir, config.external_skill_dirs,
+        )
         f_sessions = pool.submit(collect_sessions, hermes_dir)
 
     memory, user = f_mem.result()

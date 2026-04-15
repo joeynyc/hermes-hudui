@@ -219,6 +219,10 @@ class ConfigState:
     checkpoints_enabled: bool = False
     memory_char_limit: int = 2200
     user_char_limit: int = 1375
+    # Extra directories scanned for SKILL.md files in addition to
+    # `<hermes_dir>/skills`. Sourced from `skills.external_dirs` in
+    # config.yaml. Resolved to absolute paths in collect_config().
+    external_skill_dirs: list[str] = field(default_factory=list)
 
 
 # ── Sudo ───────────────────────────────────────────────────
