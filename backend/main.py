@@ -7,6 +7,11 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+
+# Suppress annoying macOS MallocStackLogging warnings
+if sys.platform == "darwin":
+    os.environ.setdefault("MallocStackLogging", "0")
+    os.environ.setdefault("MallocLogFile", "/dev/null")
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
