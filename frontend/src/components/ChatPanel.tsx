@@ -16,6 +16,7 @@ export default function ChatPanel() {
     error,
     sendMessage,
     cancelStream,
+    regenerate,
   } = useChat(activeSessionId)
 
   const handleCreateSession = useCallback(async () => {
@@ -153,7 +154,7 @@ export default function ChatPanel() {
         <div className="flex-1 flex flex-col min-w-0">
           {activeSessionId ? (
             <>
-              <MessageThread messages={messages} isStreaming={isStreaming} />
+              <MessageThread messages={messages} isStreaming={isStreaming} onRegenerate={(id) => regenerate({ messageId: id })} />
               <Composer
                 onSend={handleSendMessage}
                 onCancel={cancelStream}

@@ -95,7 +95,7 @@ export function useChat(sessionId: string | null) {
     [] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  const { messages, status, error, sendMessage, stop, setMessages } = useAiChat({
+  const { messages, status, error, sendMessage, stop, setMessages, regenerate } = useAiChat({
     transport,
     experimental_throttle: 50,
     onFinish: ({ messages: finishedMessages }) => {
@@ -159,6 +159,7 @@ export function useChat(sessionId: string | null) {
     sendMessage: (content: string) => sendMessage({ text: content }),
     cancelStream,
     loadComposerState,
+    regenerate,
   }
 }
 

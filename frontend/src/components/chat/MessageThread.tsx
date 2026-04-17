@@ -8,9 +8,10 @@ import ReasoningBlock from './ReasoningBlock'
 interface MessageThreadProps {
   messages: UIMessage[]
   isStreaming: boolean
+  onRegenerate?: (messageId: string) => void
 }
 
-export default function MessageThread({ messages, isStreaming }: MessageThreadProps) {
+export default function MessageThread({ messages, isStreaming, onRegenerate }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom on new messages
@@ -53,6 +54,21 @@ export default function MessageThread({ messages, isStreaming }: MessageThreadPr
                 }
                 return null
               })}
+              {isLastMessage && message.role === 'assistant' && !isStreaming && onRegenerate && (
+                <div className="flex justify-start pl-1 mt-0.5">
+                  <button
+                    onClick={() => onRegenerate(message.id)}
+                    className="px-2 py-0.5 text-[11px] cursor-pointer opacity-50 hover:opacity-100 transition-opacity"
+                    style={{
+                      color: 'var(--hud-text-dim)',
+                      border: '1px solid var(--hud-border)',
+                      background: 'transparent',
+                    }}
+                  >
+                    ↻ Regenerate
+                  </button>
+                </div>
+              )}
             </div>
           )
         })
