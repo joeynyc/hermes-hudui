@@ -56,7 +56,7 @@ if [ "$NODE_VERSION" -lt 18 ]; then
     echo "✗ Node.js 18+ required (found v$NODE_VERSION)"
     exit 1
 fi
-echo "✔ Node: $(node -version)"
+echo "✔ Node: $(node --version)"
 
 # Check npm
 if ! command -v npm &>/dev/null; then
