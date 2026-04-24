@@ -74,8 +74,6 @@ _STATE_DB_NAMES = frozenset(
 def _should_ignore(path: Path) -> bool:
     """Check if file should be ignored."""
     name = path.name
-    if name in _STATE_DB_NAMES:
-        return True
     # Ignore temporary files, swap files, etc.
     ignore_patterns = (
         ".tmp",
