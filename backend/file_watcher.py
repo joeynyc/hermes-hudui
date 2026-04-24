@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -63,9 +64,18 @@ def _detect_change_type(path: Path) -> list[str]:
     return ["state"]  # Generic fallback
 
 
+# SQLite files that churn constantly during agent activity. Excluding them
+# avoids a tight polling loop on multi-hundred-MB DBs (see issue #22).
+_STATE_DB_NAMES = frozenset(
+    {"state.db", "state.db-wal", "state.db-shm", "state.db-journal"}
+)
+
+
 def _should_ignore(path: Path) -> bool:
     """Check if file should be ignored."""
     name = path.name
+    if name in _STATE_DB_NAMES:
+        return True
     # Ignore temporary files, swap files, etc.
     ignore_patterns = (
         ".tmp",
@@ -83,6 +93,17 @@ def _should_ignore(path: Path) -> bool:
     if name.startswith(".") and name not in {".env", ".hermes"}:
         return True
     return False
+
+
+class _HermesFilter(DefaultFilter):
+    """DefaultFilter that also drops high-churn SQLite files at the watchfiles
+    layer, so they don't even generate change events to process."""
+
+    def __call__(self, change: Change, path: str) -> bool:
+        name = os.path.basename(path)
+        if name in _STATE_DB_NAMES:
+            return False
+        return super().__call__(change, path)
 
 
 class FileWatcherService:
@@ -167,9 +188,16 @@ class FileWatcherService:
         try:
             watch_paths = [str(p) for p in self._get_watch_paths()]
 
-            # Use polling for reliability (scan every 2 seconds)
+            # Polling fallback for environments where inotify/FSEvents don't
+            # work (NFS, Docker bind mounts, WSL1, VM shared folders).
+            # poll_delay_ms=2000 aligns with MIN_BROADCAST_INTERVAL (5s) so we
+            # don't waste CPU scanning faster than we can broadcast.
             for changes in watch(
-                *watch_paths, stop_event=self._stop_event, force_polling=True
+                *watch_paths,
+                stop_event=self._stop_event,
+                force_polling=True,
+                poll_delay_ms=2000,
+                watch_filter=_HermesFilter(),
             ):
                 if self._stop_event.is_set():
                     break
