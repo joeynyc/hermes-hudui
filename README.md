@@ -26,6 +26,13 @@ On future runs:
 source venv/bin/activate && hermes-hudui
 ```
 
+Optional watcher override for awkward filesystems:
+```bash
+HERMES_HUD_WATCH_MODE=force-polling hermes-hudui
+```
+
+Supported watcher modes: `auto` (default), `force-polling`, `force-events`.
+
 ## What's Inside
 
 17 tabs covering everything your agent knows about itself — identity, memory, skills, sessions, cron jobs, projects, health, costs, patterns, corrections, sudo governance, live chat, connected OAuth providers, gateway control, and live model capabilities.

@@ -19,6 +19,16 @@ from .websocket_manager import ws_manager
 
 logger = logging.getLogger(__name__)
 
+WATCH_MODE_ENV = "HERMES_HUD_WATCH_MODE"
+WATCH_MODE_AUTO = "auto"
+WATCH_MODE_FORCE_POLLING = "force-polling"
+WATCH_MODE_FORCE_EVENTS = "force-events"
+_VALID_WATCH_MODES = {
+    WATCH_MODE_AUTO,
+    WATCH_MODE_FORCE_POLLING,
+    WATCH_MODE_FORCE_EVENTS,
+}
+
 # Map file patterns to data types for targeted cache invalidation
 FILE_PATTERNS = {
     "state.db": ["sessions", "patterns", "timeline", "messages", "chat"],
@@ -107,12 +117,26 @@ class _HermesFilter(DefaultFilter):
 class FileWatcherService:
     """Service that watches Hermes data directory for changes."""
 
-    def __init__(self, hermes_dir: str | None = None):
+    def __init__(self, hermes_dir: str | None = None, watch_mode: str | None = None):
         self.hermes_dir = Path(default_hermes_dir(hermes_dir))
+        self.watch_mode = self._resolve_watch_mode(watch_mode)
         self._stop_event = asyncio.Event()
         self._task: asyncio.Task | None = None
         self._on_change: Callable[[list[str], Path], None] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
+
+    @staticmethod
+    def _resolve_watch_mode(watch_mode: str | None = None) -> str:
+        raw = (watch_mode or os.environ.get(WATCH_MODE_ENV, WATCH_MODE_AUTO)).strip().lower()
+        if raw in _VALID_WATCH_MODES:
+            return raw
+        logger.warning(
+            "Unknown %s=%r; falling back to %s",
+            WATCH_MODE_ENV,
+            raw,
+            WATCH_MODE_AUTO,
+        )
+        return WATCH_MODE_AUTO
 
     def on_change(self, callback: Callable[[list[str], Path], None]) -> None:
         """Set callback for change events.
@@ -185,18 +209,27 @@ class FileWatcherService:
 
         try:
             watch_paths = [str(p) for p in self._get_watch_paths()]
+            watch_kwargs = {
+                "stop_event": self._stop_event,
+                "watch_filter": _HermesFilter(),
+            }
 
-            # Polling fallback for environments where inotify/FSEvents don't
-            # work (NFS, Docker bind mounts, WSL1, VM shared folders).
-            # poll_delay_ms=2000 aligns with MIN_BROADCAST_INTERVAL (5s) so we
-            # don't waste CPU scanning faster than we can broadcast.
-            for changes in watch(
-                *watch_paths,
-                stop_event=self._stop_event,
-                force_polling=True,
-                poll_delay_ms=2000,
-                watch_filter=_HermesFilter(),
-            ):
+            if self.watch_mode == WATCH_MODE_FORCE_POLLING:
+                # Poll no faster than the broadcast throttle.
+                watch_kwargs["force_polling"] = True
+                watch_kwargs["poll_delay_ms"] = 2000
+            elif self.watch_mode == WATCH_MODE_FORCE_EVENTS:
+                watch_kwargs["force_polling"] = False
+
+            logger.info(
+                "File watcher mode=%s paths=%s",
+                self.watch_mode,
+                ", ".join(watch_paths),
+            )
+
+            # Prefer native filesystem events so large Hermes directories are not
+            # rescanned continuously when nothing is changing.
+            for changes in watch(*watch_paths, **watch_kwargs):
                 if self._stop_event.is_set():
                     break
 
@@ -282,11 +315,11 @@ class FileWatcherService:
 file_watcher = FileWatcherService()
 
 
-async def start_watcher(hermes_dir: str | None = None) -> None:
+async def start_watcher(hermes_dir: str | None = None, watch_mode: str | None = None) -> None:
     """Start the global file watcher."""
     global file_watcher
-    if hermes_dir:
-        file_watcher = FileWatcherService(hermes_dir)
+    if hermes_dir or watch_mode:
+        file_watcher = FileWatcherService(hermes_dir, watch_mode=watch_mode)
     await file_watcher.start()
 
 
