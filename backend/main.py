@@ -55,7 +55,8 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan: start/stop file watcher."""
     # Startup
     hermes_dir = os.environ.get("HERMES_HOME") or os.path.expanduser("~/.hermes")
-    await start_watcher(hermes_dir)
+    watch_mode = os.environ.get("HERMES_HUD_WATCH_MODE")
+    await start_watcher(hermes_dir, watch_mode=watch_mode)
     logger.info(f"Hermes HUD started, watching {hermes_dir}")
 
     yield
@@ -147,10 +148,18 @@ def cli():
     parser.add_argument(
         "--hermes-dir", default=None, help="Hermes data directory (default: ~/.hermes)"
     )
+    parser.add_argument(
+        "--watch-mode",
+        choices=["auto", "force-polling", "force-events"],
+        default=None,
+        help="File watcher mode (default: auto)",
+    )
     args = parser.parse_args()
 
     if args.hermes_dir:
         os.environ["HERMES_HOME"] = args.hermes_dir
+    if args.watch_mode:
+        os.environ["HERMES_HUD_WATCH_MODE"] = args.watch_mode
 
     import uvicorn
 
