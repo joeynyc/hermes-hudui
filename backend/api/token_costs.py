@@ -40,6 +40,12 @@ MODEL_PRICING: dict[str, dict] = {
     "claude-4-sonnet": _SONNET,
     "claude-3-7-sonnet": _SONNET,
     "claude-3.7-sonnet": _SONNET,
+    # Legacy Claude 3.x (date-suffixed names from Anthropic API, e.g. claude-3-5-sonnet-20241022)
+    "claude-3-5-sonnet": _SONNET,
+    "claude-3-5-haiku": {"input": 0.80, "output": 4.00, "cache_read": 0.08, "cache_write": 1.00, "reasoning": 0.80},
+    "claude-3-opus": {"input": 15.00, "output": 75.00, "cache_read": 1.50, "cache_write": 18.75, "reasoning": 15.00},
+    "claude-3-sonnet": {"input": 3.00, "output": 15.00, "cache_read": 0.30, "cache_write": 3.75, "reasoning": 3.00},
+    "claude-3-haiku": {"input": 0.25, "output": 1.25, "cache_read": 0.03, "cache_write": 0.30, "reasoning": 0.25},
     # OpenAI
     "gpt-5.4-pro": {"input": 30.00, "output": 180.00, "cache_read": 15.00, "cache_write": 30.00, "reasoning": 30.00},
     "gpt-5.4": {"input": 2.50, "output": 15.00, "cache_read": 1.25, "cache_write": 2.50, "reasoning": 2.50},
@@ -70,10 +76,13 @@ MODEL_PRICING: dict[str, dict] = {
     "gemini-2.0-flash": _GEMINI_FLASH_OLD,
     "gemini-flash": _GEMINI_FLASH_OLD,
     # Xiaomi
+    "mimo-v2.5-pro": {"input": 1.00, "output": 3.00, "cache_read": 0.20, "cache_write": 1.00, "reasoning": 1.00},
     "mimo-v2-pro": {"input": 1.00, "output": 3.00, "cache_read": 0.20, "cache_write": 1.00, "reasoning": 1.00},
     # MiniMax
-    "minimax-m2.7": {"input": 0.20, "output": 1.20, "cache_read": 0.05, "cache_write": 0.20, "reasoning": 0.20},
-    "minimax-m2.5": {"input": 0.12, "output": 0.99, "cache_read": 0.06, "cache_write": 0.12, "reasoning": 0.12},
+    "minimax-m2.7-highspeed": {"input": 0.60, "output": 2.40, "cache_read": 0.06, "cache_write": 0.375, "reasoning": 0.60},
+    "minimax-m2.7": {"input": 0.30, "output": 1.20, "cache_read": 0.06, "cache_write": 0.375, "reasoning": 0.30},
+    "minimax-m2.5-highspeed": {"input": 0.60, "output": 2.40, "cache_read": 0.03, "cache_write": 0.375, "reasoning": 0.60},
+    "minimax-m2.5": {"input": 0.30, "output": 1.20, "cache_read": 0.03, "cache_write": 0.375, "reasoning": 0.30},
     # Meta
     "llama-3.3-70b": _LLAMA,
     "llama-4": _LLAMA,
@@ -98,19 +107,19 @@ def _get_pricing(model: str | None) -> tuple[dict, str]:
     """Return (pricing_dict, matched_key) for a model."""
     if not model:
         return DEFAULT_PRICING, "unpriced (unknown)"
-    # Exact match
-    if model in MODEL_PRICING:
-        return MODEL_PRICING[model], model
-    # Partial match (strip provider prefix, try longest key first)
-    base = model.split("/")[-1] if "/" in model else model
+    # Exact match (case-insensitive)
+    lower_model = model.lower()
+    if lower_model in MODEL_PRICING:
+        return MODEL_PRICING[lower_model], lower_model
+    # Partial match (strip provider prefix, try longest key first, case-insensitive)
+    base = lower_model.split("/")[-1] if "/" in lower_model else lower_model
     for key in _SORTED_KEYS:
         if base.startswith(key):
             return MODEL_PRICING[key], key
     # Check if it's a local/inference/free model (zero cost)
-    lower = model.lower()
-    if any(kw in lower for kw in ("local", "localhost", ":free", "gemma", "nemotron", "mimo-free")):
+    if any(kw in lower_model for kw in ("local", "localhost", ":free", "gemma", "nemotron", "mimo-free")):
         return _FREE, "local (free)"
-    if _SMALL_MODEL_RE.search(lower):
+    if _SMALL_MODEL_RE.search(lower_model):
         return _FREE, "local (free)"
     return DEFAULT_PRICING, f"unpriced ({model})"
 
