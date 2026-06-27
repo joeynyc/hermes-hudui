@@ -94,6 +94,16 @@ _SORTED_KEYS = sorted(MODEL_PRICING, key=len, reverse=True)
 _SMALL_MODEL_RE = re.compile(r'[-_](?:1\.?[58]b|3b|4b|7b|8b|9b|13b|14b)\b')
 
 
+def _normalize_model_name(model: str) -> str:
+    """Normalize dot-notation version numbers to hyphens (4.6 -> 4-6).
+
+    Anthropic publishes model IDs with hyphens (claude-opus-4-6) but some
+    proxy configs and Hermes provider entries use dots (claude-opus-4.6).
+    Normalize before lookup so both resolve to the same pricing entry.
+    """
+    return re.sub(r'(\d+)\.(\d+)', r'\1-\2', model)
+
+
 def _get_pricing(model: str | None) -> tuple[dict, str]:
     """Return (pricing_dict, matched_key) for a model."""
     if not model:
@@ -101,11 +111,21 @@ def _get_pricing(model: str | None) -> tuple[dict, str]:
     # Exact match
     if model in MODEL_PRICING:
         return MODEL_PRICING[model], model
+    # Try with dot-notation normalized to hyphens (e.g. opus-4.6 -> opus-4-6)
+    normalized = _normalize_model_name(model)
+    if normalized != model and normalized in MODEL_PRICING:
+        return MODEL_PRICING[normalized], normalized
     # Partial match (strip provider prefix, try longest key first)
     base = model.split("/")[-1] if "/" in model else model
     for key in _SORTED_KEYS:
         if base.startswith(key):
             return MODEL_PRICING[key], key
+    # Retry partial match with normalized name (dots -> hyphens)
+    if normalized != model:
+        norm_base = normalized.split("/")[-1] if "/" in normalized else normalized
+        for key in _SORTED_KEYS:
+            if norm_base.startswith(key):
+                return MODEL_PRICING[key], key
     # Check if it's a local/inference/free model (zero cost)
     lower = model.lower()
     if any(kw in lower for kw in ("local", "localhost", ":free", "gemma", "nemotron", "mimo-free")):
