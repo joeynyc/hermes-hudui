@@ -44,6 +44,16 @@ The Plugin Hub shows installed dashboard and agent plugins, extension entry poin
 
 Updates in real time via WebSocket. No manual refresh needed.
 
+## Companion X/Twitter Context
+
+If a Hermes session uses [Hermes Tweet](https://github.com/Xquik-dev/hermes-tweet)
+to gather X/Twitter account, post, or trend context, Hermes HUDUI gives that work
+a browser surface: sessions, replay exports, memory, skills, plugin state, and
+live chat stay visible next to the rest of the agent run.
+
+Hermes Tweet is a third-party Hermes plugin maintained by Xquik-dev, not by this
+repository.
+
 ## Hermes Replay
 
 Hermes Replay turns agent runs into redacted, shareable proof artifacts.
