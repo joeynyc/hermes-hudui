@@ -65,6 +65,21 @@ interface ProfileEdit {
 
 interface ProfileOptions {
   providers?: string[]
+  provider_presets?: Record<string, {
+    display_name?: string
+    models?: Array<{
+      id: string
+      context_window?: number
+      input_modalities?: string[]
+      thinking?: string[]
+    }>
+    endpoints?: Array<{
+      region: string
+      openai_base_url: string
+      anthropic_base_url: string
+      docs_root?: string
+    }>
+  }>
   toolsets?: string[]
 }
 
@@ -185,6 +200,10 @@ function ProfileEditor({
     setForm(current => current ? ({ ...current, compression: { ...current.compression, ...patch } }) : current)
   }
 
+  const providerPreset = form
+    ? options.provider_presets?.[form.model.provider.trim().toLowerCase()]
+    : undefined
+
   const toggleToolset = (toolset: string) => {
     setForm(current => {
       if (!current) return current
@@ -279,10 +298,14 @@ function ProfileEditor({
               <FieldLabel>{t('profiles.model')}</FieldLabel>
               <input
                 value={form.model.default}
+                list="profile-model-options"
                 onChange={e => updateModel({ default: e.target.value })}
                 className="w-full text-[13px] px-2 py-1.5 outline-none"
                 style={inputStyle}
               />
+              <datalist id="profile-model-options">
+                {(providerPreset?.models || []).map(model => <option key={model.id} value={model.id} />)}
+              </datalist>
             </div>
             <div>
               <FieldLabel>{t('profiles.context')}</FieldLabel>
@@ -298,11 +321,26 @@ function ProfileEditor({
               <FieldLabel>{t('profiles.backend')}</FieldLabel>
               <input
                 value={form.model.base_url}
+                list="profile-base-url-options"
                 onChange={e => updateModel({ base_url: e.target.value })}
                 placeholder="https://..."
                 className="w-full text-[13px] px-2 py-1.5 outline-none"
                 style={inputStyle}
               />
+              <datalist id="profile-base-url-options">
+                {(providerPreset?.endpoints || []).flatMap(endpoint => [
+                  <option
+                    key={`${endpoint.region}-openai`}
+                    value={endpoint.openai_base_url}
+                    label={`${endpoint.region} · OpenAI-compatible`}
+                  />,
+                  <option
+                    key={`${endpoint.region}-anthropic`}
+                    value={endpoint.anthropic_base_url}
+                    label={`${endpoint.region} · Anthropic-compatible`}
+                  />,
+                ])}
+              </datalist>
             </div>
             <div>
               <FieldLabel>{t('profiles.apiMode')}</FieldLabel>

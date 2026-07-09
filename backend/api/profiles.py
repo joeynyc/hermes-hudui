@@ -29,8 +29,43 @@ PROVIDER_OPTIONS = [
     "zai",
     "google",
     "xai",
+    "minimax",
     "custom",
 ]
+
+PROVIDER_PRESETS = {
+    "minimax": {
+        "display_name": "MiniMax",
+        "models": [
+            {
+                "id": "MiniMax-M3",
+                "context_window": 1_000_000,
+                "input_modalities": ["text", "image", "video"],
+                "thinking": ["adaptive", "disabled"],
+            },
+            {
+                "id": "MiniMax-M2.7",
+                "context_window": 204_800,
+                "input_modalities": ["text"],
+                "thinking": ["always_on"],
+            },
+        ],
+        "endpoints": [
+            {
+                "region": "global_en",
+                "openai_base_url": "https://api.minimax.io/v1",
+                "anthropic_base_url": "https://api.minimax.io/anthropic/v1",
+                "docs_root": "https://platform.minimax.io/docs",
+            },
+            {
+                "region": "cn_zh",
+                "openai_base_url": "https://api.minimaxi.com/v1",
+                "anthropic_base_url": "https://api.minimaxi.com/anthropic/v1",
+                "docs_root": "https://platform.minimaxi.com/docs",
+            },
+        ],
+    },
+}
 
 TOOLSET_OPTIONS = [
     "hermes-cli",
@@ -226,6 +261,7 @@ async def get_profiles():
 async def profile_options():
     return {
         "providers": PROVIDER_OPTIONS,
+        "provider_presets": PROVIDER_PRESETS,
         "toolsets": TOOLSET_OPTIONS,
     }
 

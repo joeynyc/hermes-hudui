@@ -111,7 +111,8 @@ MODEL_PRICING: dict[str, dict] = {
     # Xiaomi
     "mimo-v2-pro": {"input": 1.00, "output": 3.00, "cache_read": 0.20, "cache_write": 1.00, "reasoning": 1.00},
     # MiniMax
-    "minimax-m2.7": {"input": 0.20, "output": 1.20, "cache_read": 0.05, "cache_write": 0.20, "reasoning": 0.20},
+    "minimax-m3": {"input": 0.60, "output": 2.40, "cache_read": 0.12, "cache_write": None, "reasoning": 0.60},
+    "minimax-m2.7": {"input": 0.30, "output": 1.20, "cache_read": 0.06, "cache_write": 0.375, "reasoning": 0.30},
     "minimax-m2.5": {"input": 0.12, "output": 0.99, "cache_read": 0.06, "cache_write": 0.12, "reasoning": 0.12},
     # Meta
     "llama-3.3-70b": _LLAMA,
@@ -158,12 +159,13 @@ def _get_pricing(model: str | None) -> tuple[dict, str]:
         return _FREE, "local (free)"
     if _SMALL_MODEL_RE.search(lower_model):
         return _FREE, "local (free)"
+        return _FREE, "local (free)"
     return DEFAULT_PRICING, f"unpriced ({model})"
 
 
 def _calc_cost(tokens: dict, pricing: dict) -> float:
     return sum(
-        (tokens.get(k, 0) / 1_000_000) * pricing.get(k, 0)
+        (tokens.get(k, 0) / 1_000_000) * (pricing.get(k) or 0)
         for k in ("input", "output", "cache_read", "cache_write", "reasoning")
     )
 

@@ -12,6 +12,7 @@ tree is built under a tmp dir.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,7 @@ from backend.api.profiles import (
     ProfileEditBody,
     ProfileModelEdit,
     get_profile_edit,
+    profile_options,
     update_profile_edit,
 )
 from backend.collectors.utils import load_yaml
@@ -187,3 +189,21 @@ def test_profile_health_check_rejects_non_loopback_targets(
     )
 
     assert profile_collector._check_server_status(base_url) == "n/a"
+
+
+def test_profile_options_include_minimax_models_and_regional_endpoints() -> None:
+    options = asyncio.run(profile_options())
+    preset = options["provider_presets"]["minimax"]
+
+    assert "minimax" in options["providers"]
+    assert [model["id"] for model in preset["models"]] == ["MiniMax-M3", "MiniMax-M2.7"]
+    assert [model["context_window"] for model in preset["models"]] == [1_000_000, 204_800]
+    assert {endpoint["region"] for endpoint in preset["endpoints"]} == {"global_en", "cn_zh"}
+    assert {endpoint["openai_base_url"] for endpoint in preset["endpoints"]} == {
+        "https://api.minimax.io/v1",
+        "https://api.minimaxi.com/v1",
+    }
+    assert {endpoint["anthropic_base_url"] for endpoint in preset["endpoints"]} == {
+        "https://api.minimax.io/anthropic/v1",
+        "https://api.minimaxi.com/anthropic/v1",
+    }

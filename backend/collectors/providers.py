@@ -21,6 +21,7 @@ _DISPLAY_NAMES = {
     "zai": "Z.AI",
     "google": "Google",
     "xai": "xAI Grok",
+    "minimax": "MiniMax",
 }
 
 _PROVIDER_KEYS = {

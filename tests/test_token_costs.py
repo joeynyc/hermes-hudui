@@ -333,3 +333,55 @@ def test_token_costs_handles_old_schema_without_actual_cost(
     assert data["all_time"]["actual_cost_usd"] == 0
     assert data["all_time"]["billed_cost_usd"] == 0.21
     assert data["all_time"]["actual_coverage_pct"] == 0
+
+
+def test_token_costs_prices_minimax_models(tmp_path: Path, monkeypatch) -> None:
+    hermes_dir = tmp_path / "hermes"
+    hermes_dir.mkdir()
+    db_path = hermes_dir / "state.db"
+    _make_state_db(db_path)
+    _insert_session(
+        db_path,
+        id="minimax-m3",
+        source="cli",
+        title="MiniMax M3 request",
+        started_at=datetime.now().timestamp(),
+        model="MiniMax-M3",
+        input_tokens=1_000_000,
+        output_tokens=1_000_000,
+        cache_read_tokens=1_000_000,
+        cache_write_tokens=1_000_000,
+    )
+    _insert_session(
+        db_path,
+        id="minimax-m2-7",
+        source="cli",
+        title="MiniMax M2.7 request",
+        started_at=datetime.now().timestamp(),
+        model="MiniMax-M2.7",
+        input_tokens=1_000_000,
+        output_tokens=1_000_000,
+        cache_read_tokens=1_000_000,
+        cache_write_tokens=1_000_000,
+    )
+    monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
+
+    data = asyncio.run(get_token_costs())
+
+    m3 = next(m for m in data["by_model"] if m["model"] == "MiniMax-M3")
+    m27 = next(m for m in data["by_model"] if m["model"] == "MiniMax-M2.7")
+    assert m3["matched_pricing"] == "minimax-m3"
+    assert m3["estimated_cost_usd"] == 3.12
+    assert m27["matched_pricing"] == "minimax-m2.7"
+    assert m27["estimated_cost_usd"] == 1.94
+    assert data["pricing_table"]["minimax-m3"]["input"] == 0.60
+    assert data["pricing_table"]["minimax-m3"]["output"] == 2.40
+    assert data["pricing_table"]["minimax-m3"]["cache_read"] == 0.12
+    assert data["pricing_table"]["minimax-m3"]["cache_write"] is None
+    assert data["pricing_table"]["minimax-m2.7"] == {
+        "input": 0.30,
+        "output": 1.20,
+        "cache_read": 0.06,
+        "cache_write": 0.375,
+        "reasoning": 0.30,
+    }

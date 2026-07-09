@@ -86,3 +86,23 @@ def test_providers_warn_when_configured_model_lacks_tool_metadata(tmp_path: Path
     state = collect_providers(str(tmp_path))
 
     assert "Configured model 'claude-text-only' does not advertise tool-call support in models.dev" in state.warnings
+
+
+def test_providers_display_name_includes_minimax(tmp_path: Path, monkeypatch) -> None:
+    clear_cache()
+    monkeypatch.setenv("MINIMAX_API_KEY", "sk-minimax")
+    _write_config(tmp_path, "minimax", "minimax-m3")
+    (tmp_path / "models_dev_cache.json").write_text(
+        json.dumps({"minimax": {"models": {"minimax-m3": {"tool_call": True}}}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "auth.json").write_text(
+        json.dumps({"credential_pool": {"minimax": [{"api_key": "live-token", "priority": 0}]}}),
+        encoding="utf-8",
+    )
+
+    state = collect_providers(str(tmp_path))
+    minimax = next(provider for provider in state.providers if provider.id == "minimax")
+
+    assert minimax.name == "MiniMax"
+    assert not state.warnings
