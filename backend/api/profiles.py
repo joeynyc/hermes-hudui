@@ -54,13 +54,13 @@ PROVIDER_PRESETS = {
             {
                 "region": "global_en",
                 "openai_base_url": "https://api.minimax.io/v1",
-                "anthropic_base_url": "https://api.minimax.io/anthropic/v1",
+                "anthropic_base_url": "https://api.minimax.io/anthropic",
                 "docs_root": "https://platform.minimax.io/docs",
             },
             {
                 "region": "cn_zh",
                 "openai_base_url": "https://api.minimaxi.com/v1",
-                "anthropic_base_url": "https://api.minimaxi.com/anthropic/v1",
+                "anthropic_base_url": "https://api.minimaxi.com/anthropic",
                 "docs_root": "https://platform.minimaxi.com/docs",
             },
         ],

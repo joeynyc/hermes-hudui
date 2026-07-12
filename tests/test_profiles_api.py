@@ -204,6 +204,6 @@ def test_profile_options_include_minimax_models_and_regional_endpoints() -> None
         "https://api.minimaxi.com/v1",
     }
     assert {endpoint["anthropic_base_url"] for endpoint in preset["endpoints"]} == {
-        "https://api.minimax.io/anthropic/v1",
-        "https://api.minimaxi.com/anthropic/v1",
+        "https://api.minimax.io/anthropic",
+        "https://api.minimaxi.com/anthropic",
     }
