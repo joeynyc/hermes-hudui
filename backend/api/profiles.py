@@ -30,26 +30,29 @@ PROVIDER_OPTIONS = [
     "google",
     "xai",
     "minimax",
+    "minimax-cn",
     "custom",
+]
+
+MINIMAX_MODELS = [
+    {
+        "id": "MiniMax-M3",
+        "context_window": 1_000_000,
+        "input_modalities": ["text", "image", "video"],
+        "thinking": ["adaptive", "disabled"],
+    },
+    {
+        "id": "MiniMax-M2.7",
+        "context_window": 204_800,
+        "input_modalities": ["text"],
+        "thinking": ["always_on"],
+    },
 ]
 
 PROVIDER_PRESETS = {
     "minimax": {
         "display_name": "MiniMax",
-        "models": [
-            {
-                "id": "MiniMax-M3",
-                "context_window": 1_000_000,
-                "input_modalities": ["text", "image", "video"],
-                "thinking": ["adaptive", "disabled"],
-            },
-            {
-                "id": "MiniMax-M2.7",
-                "context_window": 204_800,
-                "input_modalities": ["text"],
-                "thinking": ["always_on"],
-            },
-        ],
+        "models": MINIMAX_MODELS,
         "endpoints": [
             {
                 "region": "global_en",
@@ -57,6 +60,12 @@ PROVIDER_PRESETS = {
                 "anthropic_base_url": "https://api.minimax.io/anthropic",
                 "docs_root": "https://platform.minimax.io/docs",
             },
+        ],
+    },
+    "minimax-cn": {
+        "display_name": "MiniMax China",
+        "models": MINIMAX_MODELS,
+        "endpoints": [
             {
                 "region": "cn_zh",
                 "openai_base_url": "https://api.minimaxi.com/v1",

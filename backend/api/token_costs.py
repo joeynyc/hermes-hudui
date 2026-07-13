@@ -46,6 +46,42 @@ _GEMINI_FLASH_OLD = {"input": 0.10, "output": 0.40, "cache_read": 0.025, "cache_
 _LLAMA = {"input": 0.10, "output": 0.10, "cache_read": 0.025, "cache_write": 0.10, "reasoning": 0.10}
 _FREE = {"input": 0.0, "output": 0.0, "cache_read": 0.0, "cache_write": 0.0, "reasoning": 0.0}
 
+# Source: https://platform.minimax.io/docs/guides/pricing-paygo (July 2026)
+_MINIMAX_M3_PRICING_TIERS = [
+    {
+        "service_tier": "standard",
+        "input_tokens_lte": 512_000,
+        "input": 0.30,
+        "output": 1.20,
+        "cache_read": 0.06,
+        "cache_write": None,
+    },
+    {
+        "service_tier": "standard",
+        "input_tokens_gt": 512_000,
+        "input": 0.60,
+        "output": 2.40,
+        "cache_read": 0.12,
+        "cache_write": None,
+    },
+    {
+        "service_tier": "priority",
+        "input_tokens_lte": 512_000,
+        "input": 0.45,
+        "output": 1.80,
+        "cache_read": 0.09,
+        "cache_write": None,
+    },
+    {
+        "service_tier": "priority",
+        "input_tokens_gt": 512_000,
+        "input": 0.90,
+        "output": 3.60,
+        "cache_read": 0.18,
+        "cache_write": None,
+    },
+]
+
 MODEL_PRICING: dict[str, dict] = {
     # Anthropic — Fable / Mythos 5 ($10/$50 per MTok)
     "claude-fable-5": _FABLE_5,
@@ -111,7 +147,14 @@ MODEL_PRICING: dict[str, dict] = {
     # Xiaomi
     "mimo-v2-pro": {"input": 1.00, "output": 3.00, "cache_read": 0.20, "cache_write": 1.00, "reasoning": 1.00},
     # MiniMax
-    "minimax-m3": {"input": 0.60, "output": 2.40, "cache_read": 0.12, "cache_write": None, "reasoning": 0.60},
+    "minimax-m3": {
+        "input": 0.30,
+        "output": 1.20,
+        "cache_read": 0.06,
+        "cache_write": None,
+        "reasoning": 0.30,
+        "pricing_tiers": _MINIMAX_M3_PRICING_TIERS,
+    },
     "minimax-m2.7": {"input": 0.30, "output": 1.20, "cache_read": 0.06, "cache_write": 0.375, "reasoning": 0.30},
     "minimax-m2.5": {"input": 0.12, "output": 0.99, "cache_read": 0.06, "cache_write": 0.12, "reasoning": 0.12},
     # Meta
@@ -161,6 +204,32 @@ def _get_pricing(model: str | None) -> tuple[dict, str]:
         return _FREE, "local (free)"
         return _FREE, "local (free)"
     return DEFAULT_PRICING, f"unpriced ({model})"
+
+
+def _pricing_for_usage(pricing: dict, tokens: dict) -> dict:
+    tiers = pricing.get("pricing_tiers")
+    if not isinstance(tiers, list):
+        return pricing
+
+    # Sessions do not persist service_tier, so estimates use the provider's
+    # default standard tier. Cached tokens still count toward prompt length.
+    prompt_tokens = sum(
+        int(tokens.get(key, 0) or 0)
+        for key in ("input", "cache_read", "cache_write")
+    )
+    for tier in tiers:
+        if tier.get("service_tier") != "standard":
+            continue
+        upper_bound = tier.get("input_tokens_lte")
+        lower_bound = tier.get("input_tokens_gt")
+        if upper_bound is not None and prompt_tokens > upper_bound:
+            continue
+        if lower_bound is not None and prompt_tokens <= lower_bound:
+            continue
+        selected = {**pricing, **tier}
+        selected["reasoning"] = selected["input"]
+        return selected
+    return pricing
 
 
 def _calc_cost(tokens: dict, pricing: dict) -> float:
@@ -356,11 +425,12 @@ async def get_token_costs():
         }
 
         pricing, matched = _get_pricing(model)
+        effective_pricing = _pricing_for_usage(pricing, tokens)
         actual_cost = row["actual_cost_usd"]
         actual = float(actual_cost) if actual_cost is not None else None
-        estimated = _calc_cost(tokens, pricing)
+        estimated = _calc_cost(tokens, effective_pricing)
         cost = actual if actual is not None else estimated
-        savings = _cache_savings(tokens, pricing)
+        savings = _cache_savings(tokens, effective_pricing)
 
         # Per-model
         if model not in by_model:

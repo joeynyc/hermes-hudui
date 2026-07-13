@@ -22,6 +22,7 @@ _DISPLAY_NAMES = {
     "google": "Google",
     "xai": "xAI Grok",
     "minimax": "MiniMax",
+    "minimax-cn": "MiniMax China",
 }
 
 _PROVIDER_KEYS = {
@@ -34,6 +35,7 @@ _PROVIDER_KEYS = {
     "xai": ("XAI_API_KEY",),
     "zai": ("ZAI_API_KEY",),
     "minimax": ("MINIMAX_API_KEY",),
+    "minimax-cn": ("MINIMAX_CN_API_KEY",),
     "nous": ("NOUS_API_KEY",),
 }
 

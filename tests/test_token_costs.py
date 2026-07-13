@@ -347,10 +347,10 @@ def test_token_costs_prices_minimax_models(tmp_path: Path, monkeypatch) -> None:
         title="MiniMax M3 request",
         started_at=datetime.now().timestamp(),
         model="MiniMax-M3",
-        input_tokens=1_000_000,
+        input_tokens=500_000,
         output_tokens=1_000_000,
-        cache_read_tokens=1_000_000,
-        cache_write_tokens=1_000_000,
+        cache_read_tokens=0,
+        cache_write_tokens=0,
     )
     _insert_session(
         db_path,
@@ -371,13 +371,48 @@ def test_token_costs_prices_minimax_models(tmp_path: Path, monkeypatch) -> None:
     m3 = next(m for m in data["by_model"] if m["model"] == "MiniMax-M3")
     m27 = next(m for m in data["by_model"] if m["model"] == "MiniMax-M2.7")
     assert m3["matched_pricing"] == "minimax-m3"
-    assert m3["estimated_cost_usd"] == 3.12
+    assert m3["estimated_cost_usd"] == 1.35
     assert m27["matched_pricing"] == "minimax-m2.7"
     assert m27["estimated_cost_usd"] == 1.94
-    assert data["pricing_table"]["minimax-m3"]["input"] == 0.60
-    assert data["pricing_table"]["minimax-m3"]["output"] == 2.40
-    assert data["pricing_table"]["minimax-m3"]["cache_read"] == 0.12
-    assert data["pricing_table"]["minimax-m3"]["cache_write"] is None
+    m3_pricing = data["pricing_table"]["minimax-m3"]
+    assert m3_pricing["input"] == 0.30
+    assert m3_pricing["output"] == 1.20
+    assert m3_pricing["cache_read"] == 0.06
+    assert m3_pricing["cache_write"] is None
+    assert m3_pricing["pricing_tiers"] == [
+        {
+            "service_tier": "standard",
+            "input_tokens_lte": 512_000,
+            "input": 0.30,
+            "output": 1.20,
+            "cache_read": 0.06,
+            "cache_write": None,
+        },
+        {
+            "service_tier": "standard",
+            "input_tokens_gt": 512_000,
+            "input": 0.60,
+            "output": 2.40,
+            "cache_read": 0.12,
+            "cache_write": None,
+        },
+        {
+            "service_tier": "priority",
+            "input_tokens_lte": 512_000,
+            "input": 0.45,
+            "output": 1.80,
+            "cache_read": 0.09,
+            "cache_write": None,
+        },
+        {
+            "service_tier": "priority",
+            "input_tokens_gt": 512_000,
+            "input": 0.90,
+            "output": 3.60,
+            "cache_read": 0.18,
+            "cache_write": None,
+        },
+    ]
     assert data["pricing_table"]["minimax-m2.7"] == {
         "input": 0.30,
         "output": 1.20,
@@ -385,3 +420,28 @@ def test_token_costs_prices_minimax_models(tmp_path: Path, monkeypatch) -> None:
         "cache_write": 0.375,
         "reasoning": 0.30,
     }
+
+
+def test_token_costs_uses_upper_standard_tier_for_large_minimax_m3_prompt(
+    tmp_path: Path, monkeypatch
+) -> None:
+    hermes_dir = tmp_path / "hermes"
+    hermes_dir.mkdir()
+    db_path = hermes_dir / "state.db"
+    _make_state_db(db_path)
+    _insert_session(
+        db_path,
+        id="minimax-m3-large",
+        source="cli",
+        title="Large MiniMax M3 request",
+        started_at=datetime.now().timestamp(),
+        model="MiniMax-M3",
+        input_tokens=513_000,
+        output_tokens=1_000_000,
+    )
+    monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
+
+    data = asyncio.run(get_token_costs())
+
+    m3 = next(m for m in data["by_model"] if m["model"] == "MiniMax-M3")
+    assert m3["estimated_cost_usd"] == 2.71

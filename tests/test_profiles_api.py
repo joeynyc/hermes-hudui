@@ -193,17 +193,31 @@ def test_profile_health_check_rejects_non_loopback_targets(
 
 def test_profile_options_include_minimax_models_and_regional_endpoints() -> None:
     options = asyncio.run(profile_options())
-    preset = options["provider_presets"]["minimax"]
+    global_preset = options["provider_presets"]["minimax"]
+    china_preset = options["provider_presets"]["minimax-cn"]
 
-    assert "minimax" in options["providers"]
-    assert [model["id"] for model in preset["models"]] == ["MiniMax-M3", "MiniMax-M2.7"]
-    assert [model["context_window"] for model in preset["models"]] == [1_000_000, 204_800]
-    assert {endpoint["region"] for endpoint in preset["endpoints"]} == {"global_en", "cn_zh"}
-    assert {endpoint["openai_base_url"] for endpoint in preset["endpoints"]} == {
-        "https://api.minimax.io/v1",
-        "https://api.minimaxi.com/v1",
-    }
-    assert {endpoint["anthropic_base_url"] for endpoint in preset["endpoints"]} == {
-        "https://api.minimax.io/anthropic",
-        "https://api.minimaxi.com/anthropic",
-    }
+    assert {"minimax", "minimax-cn"} <= set(options["providers"])
+    for preset in (global_preset, china_preset):
+        assert [model["id"] for model in preset["models"]] == ["MiniMax-M3", "MiniMax-M2.7"]
+        assert [model["context_window"] for model in preset["models"]] == [1_000_000, 204_800]
+        assert preset["models"][0]["input_modalities"] == ["text", "image", "video"]
+        assert preset["models"][0]["thinking"] == ["adaptive", "disabled"]
+        assert preset["models"][1]["input_modalities"] == ["text"]
+        assert preset["models"][1]["thinking"] == ["always_on"]
+
+    assert global_preset["endpoints"] == [
+        {
+            "region": "global_en",
+            "openai_base_url": "https://api.minimax.io/v1",
+            "anthropic_base_url": "https://api.minimax.io/anthropic",
+            "docs_root": "https://platform.minimax.io/docs",
+        }
+    ]
+    assert china_preset["endpoints"] == [
+        {
+            "region": "cn_zh",
+            "openai_base_url": "https://api.minimaxi.com/v1",
+            "anthropic_base_url": "https://api.minimaxi.com/anthropic",
+            "docs_root": "https://platform.minimaxi.com/docs",
+        }
+    ]
