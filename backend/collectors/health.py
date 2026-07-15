@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 
 from .utils import default_hermes_dir
 import subprocess
@@ -29,9 +30,17 @@ class ServiceStatus:
 
 
 @dataclass
+class DatabaseCheck:
+    name: str
+    present: bool = False
+    note: str = ""
+
+
+@dataclass
 class HealthState:
     keys: list[KeyStatus] = field(default_factory=list)
     services: list[ServiceStatus] = field(default_factory=list)
+    database: list[DatabaseCheck] = field(default_factory=list)
     config_model: str = ""
     config_provider: str = ""
     hermes_dir_exists: bool = False
@@ -51,8 +60,20 @@ class HealthState:
         return sum(1 for s in self.services if s.running)
 
     @property
+    def database_ok(self) -> int:
+        return sum(1 for item in self.database if item.present)
+
+    @property
+    def database_missing(self) -> int:
+        return sum(1 for item in self.database if not item.present)
+
+    @property
     def all_healthy(self) -> bool:
-        return self.keys_missing == 0 and all(s.running for s in self.services)
+        return (
+            self.keys_missing == 0
+            and all(s.running for s in self.services)
+            and self.database_missing == 0
+        )
 
 
 # Known API keys to check
@@ -153,6 +174,63 @@ def _check_systemd_service(name: str, service: str) -> ServiceStatus:
         return ServiceStatus(name=name, running=False, note="systemctl unavailable")
 
 
+def _collect_database_checks(db_path: Path) -> list[DatabaseCheck]:
+    """Validate the Hermes state.db schema used by the HUD.
+
+    Hermes stores tool-call payloads in ``messages.tool_calls``. There is no
+    separate ``tool_calls`` table in current Hermes databases, so the health UI
+    must check the column rather than reporting a missing table as broken.
+    """
+    checks = [
+        DatabaseCheck("sessions table"),
+        DatabaseCheck("messages table"),
+        DatabaseCheck("messages.tool_calls column"),
+    ]
+
+    if not db_path.exists():
+        for check in checks:
+            check.note = "state.db missing"
+        return checks
+
+    conn = None
+    try:
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type='table' AND name IN ('sessions', 'messages')
+            """
+        )
+        tables = {row[0] for row in cursor.fetchall()}
+
+        checks[0].present = "sessions" in tables
+        checks[1].present = "messages" in tables
+
+        if "messages" in tables:
+            cursor.execute("PRAGMA table_info(messages)")
+            columns = {row[1] for row in cursor.fetchall()}
+            checks[2].present = "tool_calls" in columns
+            checks[2].note = "stored on messages table" if checks[2].present else "missing column"
+        else:
+            checks[2].note = "messages table missing"
+
+        for check in checks[:2]:
+            if not check.present:
+                check.note = "missing table"
+
+    except sqlite3.Error as exc:
+        for check in checks:
+            check.note = f"schema check failed: {exc}"
+    finally:
+        if conn is not None:
+            conn.close()
+
+    return checks
+
+
 def collect_health(hermes_dir: str | None = None) -> HealthState:
     """Collect health status."""
     if hermes_dir is None:
@@ -170,6 +248,7 @@ def collect_health(hermes_dir: str | None = None) -> HealthState:
             state.state_db_size = state_db.stat().st_size
         except OSError:
             pass
+    state.database = _collect_database_checks(state_db)
 
     # Config — reuse the config collector
     from .config import collect_config

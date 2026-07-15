@@ -11,6 +11,7 @@ export default function HealthPanel() {
 
   const keys = data.keys || []
   const services = data.services || []
+  const database = data.database || []
 
   return (
     <>
@@ -52,6 +53,32 @@ export default function HealthPanel() {
           <div>Provider: {data.config_provider || '-'}</div>
           <div>Model: {data.config_model || '-'}</div>
           <div>DB: {data.state_db_exists ? `${(data.state_db_size / 1048576).toFixed(1)}MB` : 'missing'}</div>
+        </div>
+      </Panel>
+
+      <Panel title="Database Schema" className="col-span-full">
+        <div className="space-y-1 text-[13px]">
+          {database.map((item: any, i: number) => (
+            <div key={i} className="flex justify-between gap-4 py-0.5">
+              <span className="truncate">{item.name}</span>
+              <span className="text-right" style={{ color: item.present ? 'var(--hud-success)' : 'var(--hud-error)' }}>
+                {item.present ? 'OK' : 'MISSING'}
+              </span>
+            </div>
+          ))}
+        </div>
+        {database.some((item: any) => item.note) && (
+          <div className="mt-2 pt-2 space-y-1 text-[12px]" style={{ borderTop: '1px solid var(--hud-border)', color: 'var(--hud-text-dim)' }}>
+            {database.filter((item: any) => item.note).map((item: any, i: number) => (
+              <div key={i}>{item.name}: {item.note}</div>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 pt-2 text-[13px]" style={{ borderTop: '1px solid var(--hud-border)' }}>
+          <span style={{ color: data.database_missing > 0 ? 'var(--hud-error)' : 'var(--hud-success)' }}>
+            {data.database_ok || 0}/{database.length || 0}
+          </span>
+          <span style={{ color: 'var(--hud-text-dim)' }}> schema checks passing</span>
         </div>
       </Panel>
     </>
