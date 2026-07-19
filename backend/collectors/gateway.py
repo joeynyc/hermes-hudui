@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -314,6 +315,14 @@ def run_action(name: str, hermes_dir: Optional[str] = None) -> dict:
     except OSError:
         pass
 
+    # Unixではセッションから切り離してデタッチ実行、Windowsでは
+    # start_new_session が使えないため CREATE_NEW_PROCESS_GROUP で代替する。
+    detach_kwargs: dict = (
+        {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS}
+        if sys.platform == "win32"
+        else {"start_new_session": True}
+    )
+
     proc = subprocess.Popen(
         [hermes_bin, *argv_tail],
         stdout=log_fh,
@@ -321,7 +330,7 @@ def run_action(name: str, hermes_dir: Optional[str] = None) -> dict:
         stdin=subprocess.DEVNULL,
         env=env,
         cwd=os.path.expanduser("~"),
-        start_new_session=True,
+        **detach_kwargs,
     )
     log_fh.close()
     _action_procs[name] = proc

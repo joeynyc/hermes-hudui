@@ -23,13 +23,33 @@ hermes-hudui
 
 Open http://localhost:3001
 
-**Requirements:** Python 3.11+, Node.js 18+, a running Hermes agent with data in `~/.hermes/`
+**Requirements:** Python 3.11+, Node.js 20.19+ or 22.12+ (required by Vite 8), a running Hermes agent with data in `~/.hermes/`
 
 **Verified against Hermes Agent v0.17.0** (state.db schema v16). The HUD reads `~/.hermes/` and the `hermes` CLI directly, so it tracks the agent's on-disk layout. The Health tab's *Agent data layout* and *Agent schema version* checks flag when your agent's data drifts from this baseline.
 
 On future runs:
 ```bash
 source venv/bin/activate && hermes-hudui
+```
+
+### Windows (native)
+
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) and [nvm-windows](https://github.com/coreybutler/nvm-windows). `install.ps1` installs Node.js 22 (LTS) via nvm — the frontend's Vite 8 toolchain requires Node 20.19+/22.12+, so Node 18 will not build it.
+
+```powershell
+git clone https://github.com/joeynyc/hermes-hudui.git
+cd hermes-hudui
+.\install.ps1
+hermes-hudui
+```
+
+If PowerShell blocks script execution, run `install.ps1` via `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
+
+On future runs:
+```powershell
+.\.venv\Scripts\Activate.ps1
+hermes-hudui
+# or, without activating: uv run hermes-hudui
 ```
 
 ## What's Inside
@@ -98,7 +118,7 @@ If you also have the TUI installed, you can enable it with `pip install 'hermes-
 
 ## Platform Support
 
-macOS · Linux · WSL
+macOS · Linux · Windows · WSL
 
 ## License
 

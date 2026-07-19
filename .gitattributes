@@ -1,0 +1,8 @@
+# Windows での checkout/build による改行コード(CRLF)差分を防ぐ。
+# backend/static/ はリリース時に git add -f で追跡するビルド成果物のため、
+# プラットフォームを問わず LF に固定してビルドの再現性を保つ。
+backend/static/index.html text eol=lf
+backend/static/assets/*.js text eol=lf
+backend/static/assets/*.css text eol=lf
+# Vite がそのままビルド出力へコピーするソース
+frontend/index.html text eol=lf

@@ -7,6 +7,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -294,10 +295,65 @@ def _get_process_info_macos(name: str, binary: str) -> list[AgentProcess]:
         return agents
 
 
+def _get_process_info_windows(name: str, binary: str) -> list[AgentProcess]:
+    """Find all processes matching the binary name using psutil (Windows)."""
+    agents = []
+    try:
+        import psutil
+    except ImportError:
+        agents.append(AgentProcess(name=name, binary=binary, running=False))
+        return agents
+
+    now = time.time()
+    for proc in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
+        try:
+            info = proc.info
+            proc_name = info.get("name") or ""
+            cmdline_parts = info.get("cmdline") or []
+            cmdline = " ".join(cmdline_parts)
+            if binary not in proc_name and binary not in cmdline:
+                continue
+
+            agent = AgentProcess(name=name, binary=binary, running=True, pid=info["pid"])
+
+            create_time = info.get("create_time")
+            if create_time:
+                age_seconds = int(now - create_time)
+                agent.uptime_seconds = age_seconds
+                agent.uptime = _format_uptime(age_seconds)
+
+            try:
+                mem_info = proc.memory_info()
+                agent.mem_mb = round(mem_info.rss / (1024 * 1024), 1)
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                pass
+
+            if cmdline:
+                trimmed = cmdline.strip()
+                if len(trimmed) > 80:
+                    trimmed = trimmed[:77] + "..."
+                agent.cmdline = trimmed
+
+            try:
+                agent.cwd = _shorten_home_path(proc.cwd())
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                pass
+
+            agents.append(agent)
+        except (psutil.AccessDenied, psutil.NoSuchProcess):
+            continue
+
+    if not agents:
+        agents.append(AgentProcess(name=name, binary=binary, running=False))
+    return agents
+
+
 def _get_process_info(name: str, binary: str) -> list[AgentProcess]:
     """Find all processes matching the binary name. Dispatches by platform."""
     if sys.platform == "darwin":
         return _get_process_info_macos(name, binary)
+    if sys.platform == "win32":
+        return _get_process_info_windows(name, binary)
     return _get_process_info_linux(name, binary)
 
 
@@ -326,6 +382,9 @@ def _get_tty_for_pid(pid: int) -> Optional[str]:
 def _get_ttys_for_pids(pids: list[int]) -> dict[int, str]:
     """Return a {pid: tty} map for multiple PIDs in one ps call."""
     if not pids:
+        return {}
+    if sys.platform == "win32":
+        # WindowsにはUnix的なTTYの概念がない
         return {}
     try:
         result = subprocess.run(

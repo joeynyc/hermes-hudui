@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import os
 import tempfile
 from pathlib import Path
@@ -13,6 +12,7 @@ from pydantic import BaseModel
 
 from backend.collectors.memory import collect_memory
 from backend.collectors.config import collect_config
+from backend.collectors.filelock import exclusive_lock
 from backend.collectors.utils import default_hermes_dir
 from .serialize import to_dict
 
@@ -68,11 +68,7 @@ def _write_entries(target: MemoryTarget, entries: list[str]) -> None:
 
 def _with_lock(target: MemoryTarget, fn):
     """Execute fn while holding the memory file lock."""
-    lock = _lock_path(target)
-    lock.parent.mkdir(parents=True, exist_ok=True)
-    lock.touch(exist_ok=True)
-    with open(lock, "r") as lf:
-        fcntl.flock(lf, fcntl.LOCK_EX)
+    with exclusive_lock(_lock_path(target)):
         return fn()
 
 

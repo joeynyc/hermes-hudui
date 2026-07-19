@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import os
 import re
 import tempfile
@@ -14,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.cache import clear_cache
+from backend.collectors.filelock import exclusive_lock
 from backend.collectors.profiles import collect_profiles
 from backend.collectors.utils import default_hermes_dir, load_yaml
 from .serialize import to_dict
@@ -131,9 +131,7 @@ def _atomic_write(path: Path, text: str) -> None:
 
 def _with_profile_lock(profile_dir: Path, fn):
     lock_path = profile_dir / ".hud-profile-edit.lock"
-    lock_path.touch(exist_ok=True)
-    with open(lock_path, "r", encoding="utf-8") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with exclusive_lock(lock_path):
         return fn()
 
 

@@ -40,20 +40,29 @@ if [ -z "$PYTHON" ]; then
 fi
 echo "✔ Python: $($PYTHON --version)"
 
-# Check Node.js (18+)
+# Check Node.js (20.19+ or 22.12+ — required by the frontend's Vite 8 toolchain)
 if ! command -v node &>/dev/null; then
-    echo "✗ Node.js 18+ required"
+    echo "✗ Node.js 20.19+ or 22.12+ required"
     if [ "$OS" = "macos" ]; then
         echo "  Install: brew install node"
     else
-        echo "  Install: curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs"
+        echo "  Install: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs"
     fi
     exit 1
 fi
 
-NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "✗ Node.js 18+ required (found v$NODE_VERSION)"
+NODE_MAJOR=$(node -v | sed 's/v//' | cut -d. -f1)
+NODE_MINOR=$(node -v | sed 's/v//' | cut -d. -f2)
+NODE_OK=0
+if [ "$NODE_MAJOR" -gt 22 ]; then
+    NODE_OK=1
+elif [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -ge 12 ]; then
+    NODE_OK=1
+elif [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -ge 19 ]; then
+    NODE_OK=1
+fi
+if [ "$NODE_OK" -ne 1 ]; then
+    echo "✗ Node.js 20.19+ or 22.12+ required (found $(node --version))"
     exit 1
 fi
 echo "✔ Node: $(node --version)"

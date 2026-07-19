@@ -20,6 +20,7 @@ dependencies = [
     "watchfiles>=0.24.0",
     "pillow>=10.0",
     "cryptography>=42.0",
+    "psutil>=5.9",
 ]
 
 [project.optional-dependencies]

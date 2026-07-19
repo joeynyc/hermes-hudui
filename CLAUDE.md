@@ -12,6 +12,7 @@ Hermes HUD Web UI — a browser-based dashboard for monitoring the Hermes AI age
 ```bash
 ./install.sh        # Builds frontend, installs Python package
 ```
+Windows (native, uv + nvm-windows based): `.\install.ps1`
 
 ### Full-Stack Dev
 ```bash
