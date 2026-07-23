@@ -189,15 +189,14 @@ class FileWatcherService:
         try:
             watch_paths = [str(p) for p in self._get_watch_paths()]
 
-            # Polling fallback for environments where inotify/FSEvents don't
-            # work (NFS, Docker bind mounts, WSL1, VM shared folders).
-            # poll_delay_ms=2000 aligns with MIN_BROADCAST_INTERVAL (5s) so we
-            # don't waste CPU scanning faster than we can broadcast.
+            # Use inotify (Linux) / FSEvents (macOS) event-driven watching
+            # instead of polling. force_polling=True scans 230k+ files every
+            # 2s, consuming 70%+ CPU. inotify is available on this host.
             for changes in watch(
                 *watch_paths,
                 stop_event=self._stop_event,
-                force_polling=True,
-                poll_delay_ms=2000,
+                force_polling=False,
+                poll_delay_ms=5000,
                 watch_filter=_HermesFilter(),
             ):
                 if self._stop_event.is_set():
