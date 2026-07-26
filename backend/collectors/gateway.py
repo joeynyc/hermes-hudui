@@ -6,12 +6,13 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import Optional
 
 from ..cache import get_cached_or_compute
-from .models import GatewayState, ManagedToolStatus, ManagedToolsState, PlatformStatus
+from .models import GatewayState, ManagedToolsState, ManagedToolStatus, PlatformStatus
 from .utils import default_hermes_dir, load_yaml, parse_timestamp
 
 # Maps a stable action name (used in URLs + state files) to the `hermes`
@@ -21,9 +22,15 @@ ACTIONS: dict[str, list[str]] = {
     "hermes-update": ["update"],
 }
 ACTION_NAMES = frozenset(ACTIONS)
+_ACTION_FILE_NAMES = {
+    "gateway-restart": ("gateway-restart.json", "gateway-restart.log"),
+    "hermes-update": ("hermes-update.json", "hermes-update.log"),
+}
 
 # Bounded by len(ACTIONS); entries popped once we reap the child.
 _action_procs: dict[str, subprocess.Popen] = {}
+_MAX_ACTION_STATE_BYTES = 64 * 1024
+_MAX_ACTION_LOG_BYTES = 256 * 1024
 
 _MANAGED_TOOL_DEFS = [
     {
@@ -253,77 +260,102 @@ def collect_gateway_status(hermes_dir: Optional[str] = None) -> GatewayState:
 
 # ── Actions: restart / update ──────────────────────────────────────────
 
-def _log_dir(hermes_path: Path) -> Path:
-    d = hermes_path / "logs" / "hud"
-    d.mkdir(parents=True, exist_ok=True)
+def _action_paths(name: str, hermes_dir: Optional[str] = None) -> tuple[Path, Path]:
+    if name not in ACTION_NAMES:
+        raise ValueError(f"Unknown action: {name}")
+
+    hermes_path = Path(default_hermes_dir(hermes_dir)).expanduser().resolve()
+    log_dir = (hermes_path / "logs" / "hud").resolve(strict=False)
     try:
-        os.chmod(d, 0o700)
+        log_dir.relative_to(hermes_path)
+    except ValueError as exc:
+        raise ValueError("Action log directory escapes the Hermes directory") from exc
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_dir = log_dir.resolve()
+    try:
+        log_dir.relative_to(hermes_path)
+    except ValueError as exc:
+        raise ValueError("Action log directory escapes the Hermes directory") from exc
+    try:
+        os.chmod(log_dir, 0o700)
     except OSError:
         pass
-    return d
-
-
-def _state_path(hermes_path: Path, name: str) -> Path:
-    return _log_dir(hermes_path) / f"{name}.json"
-
-
-def _log_path(hermes_path: Path, name: str) -> Path:
-    return _log_dir(hermes_path) / f"{name}.log"
+    state_name, log_name = _ACTION_FILE_NAMES[name]
+    return log_dir / state_name, log_dir / log_name
 
 
 def _write_state(path: Path, state: dict) -> None:
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(state), encoding="utf-8")
+    descriptor, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.stem}-",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    tmp = Path(tmp_name)
     try:
-        os.chmod(tmp, 0o600)
-    except OSError:
-        pass
-    os.replace(tmp, path)
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            descriptor = -1
+            json.dump(state, handle)
+        os.replace(tmp, path)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def _read_state(path: Path) -> dict:
-    if not path.exists():
-        return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(path, flags)
+        try:
+            if os.fstat(descriptor).st_size > _MAX_ACTION_STATE_BYTES:
+                return {}
+            with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
+                descriptor = -1
+                data = json.load(handle)
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+        return data if isinstance(data, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError, OSError, UnicodeError):
         return {}
 
 
 def run_action(name: str, hermes_dir: Optional[str] = None) -> dict:
     """Spawn a detached hermes action. Returns a descriptor dict."""
-    if name not in ACTION_NAMES:
-        raise ValueError(f"Unknown action: {name}")
+    state_file, log_file = _action_paths(name, hermes_dir)
 
     hermes_bin = shutil.which("hermes")
     if not hermes_bin:
         raise RuntimeError("hermes CLI not found on PATH")
-
-    hermes_path = Path(default_hermes_dir(hermes_dir))
-    log_file = _log_path(hermes_path, name)
-    state_file = _state_path(hermes_path, name)
 
     argv_tail = ACTIONS[name]
 
     env = os.environ.copy()
     env["HERMES_NONINTERACTIVE"] = "1"
 
-    log_fh = open(log_file, "wb", buffering=0)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(log_file, flags, 0o600)
+    log_fh = os.fdopen(descriptor, "wb", buffering=0)
     try:
-        os.chmod(log_file, 0o600)
-    except OSError:
-        pass
-
-    proc = subprocess.Popen(
-        [hermes_bin, *argv_tail],
-        stdout=log_fh,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        env=env,
-        cwd=os.path.expanduser("~"),
-        start_new_session=True,
-    )
-    log_fh.close()
+        proc = subprocess.Popen(
+            [hermes_bin, *argv_tail],
+            stdout=log_fh,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            env=env,
+            cwd=os.path.expanduser("~"),
+            start_new_session=True,
+        )
+    finally:
+        log_fh.close()
     _action_procs[name] = proc
 
     state = {
@@ -337,11 +369,16 @@ def run_action(name: str, hermes_dir: Optional[str] = None) -> dict:
 
 
 def _tail_lines(path: Path, max_lines: int = 200) -> list[str]:
-    if not path.exists():
-        return []
     try:
-        data = path.read_bytes()
-    except OSError:
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(path, flags)
+        with os.fdopen(descriptor, "rb") as handle:
+            size = os.fstat(handle.fileno()).st_size
+            handle.seek(max(0, size - _MAX_ACTION_LOG_BYTES))
+            data = handle.read(_MAX_ACTION_LOG_BYTES)
+    except (FileNotFoundError, OSError):
         return []
     text = data.decode("utf-8", errors="replace")
     lines = text.splitlines()
@@ -349,12 +386,8 @@ def _tail_lines(path: Path, max_lines: int = 200) -> list[str]:
 
 
 def read_action_status(name: str, hermes_dir: Optional[str] = None) -> dict:
-    if name not in ACTION_NAMES:
-        raise ValueError(f"Unknown action: {name}")
-
-    hermes_path = Path(default_hermes_dir(hermes_dir))
-    state = _read_state(_state_path(hermes_path, name))
-    log_file = _log_path(hermes_path, name)
+    state_file, log_file = _action_paths(name, hermes_dir)
+    state = _read_state(state_file)
 
     pid = state.get("pid")
     exit_code: Optional[int] = state.get("exit_code")

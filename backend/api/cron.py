@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -10,11 +11,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.collectors.cron import collect_cron
+
 from .serialize import to_dict
 
 router = APIRouter()
 
 _HERMES_BIN: str | None = shutil.which("hermes")
+_JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 
 
 def _hermes() -> str:
@@ -24,9 +27,12 @@ def _hermes() -> str:
 
 
 def _run(action: str, job_id: str) -> None:
+    if not _JOB_ID_RE.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="invalid cron job id")
     result = subprocess.run(
-        [_hermes(), "cron", action, job_id],
+        [_hermes(), "cron", action, "--", job_id],
         capture_output=True,
+        check=False,
         timeout=10,
     )
     if result.returncode != 0:
@@ -35,14 +41,14 @@ def _run(action: str, job_id: str) -> None:
 
 
 class CreateCronBody(BaseModel):
-    schedule: str
-    prompt: str | None = None
-    name: str | None = None
-    deliver: str | None = None
+    schedule: str = Field(min_length=1, max_length=256)
+    prompt: str | None = Field(default=None, max_length=50_000)
+    name: str | None = Field(default=None, max_length=200)
+    deliver: str | None = Field(default=None, max_length=500)
     repeat: int | None = None
-    skills: list[str] = Field(default_factory=list)
-    script: str | None = None
-    workdir: str | None = None
+    skills: list[str] = Field(default_factory=list, max_length=64)
+    script: str | None = Field(default=None, max_length=1024)
+    workdir: str | None = Field(default=None, max_length=4096)
 
 
 def _clean_optional(value: str | None) -> str | None:
@@ -50,6 +56,14 @@ def _clean_optional(value: str | None) -> str | None:
         return None
     cleaned = value.strip()
     return cleaned or None
+
+
+def _reject_nul(label: str, value: str | None) -> None:
+    if value is not None and "\x00" in value:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{label} contains an invalid character",
+        )
 
 
 def _run_create(body: CreateCronBody) -> None:
@@ -64,6 +78,20 @@ def _run_create(body: CreateCronBody) -> None:
     workdir = _clean_optional(body.workdir)
     skills = [skill.strip() for skill in body.skills if skill.strip()]
 
+    for label, value in (
+        ("schedule", schedule),
+        ("prompt", prompt),
+        ("name", name),
+        ("deliver", deliver),
+        ("script", script),
+        ("workdir", workdir),
+    ):
+        _reject_nul(label, value)
+    for skill in skills:
+        _reject_nul("skill", skill)
+        if len(skill) > 200:
+            raise HTTPException(status_code=400, detail="skill name is too long")
+
     if body.repeat is not None and body.repeat < 1:
         raise HTTPException(status_code=400, detail="repeat must be a positive integer")
 
@@ -72,24 +100,26 @@ def _run_create(body: CreateCronBody) -> None:
 
     cmd = [_hermes(), "cron", "create"]
     if name:
-        cmd.extend(["--name", name])
+        cmd.append(f"--name={name}")
     if deliver:
-        cmd.extend(["--deliver", deliver])
+        cmd.append(f"--deliver={deliver}")
     if body.repeat is not None:
-        cmd.extend(["--repeat", str(body.repeat)])
+        cmd.append(f"--repeat={body.repeat}")
     for skill in skills:
-        cmd.extend(["--skill", skill])
+        cmd.append(f"--skill={skill}")
     if script:
-        cmd.extend(["--script", script])
+        cmd.append(f"--script={script}")
     if workdir:
-        cmd.extend(["--workdir", workdir])
-    cmd.append(schedule)
+        cmd.append(f"--workdir={workdir}")
+    # Explicitly terminate option parsing before user-controlled positionals.
+    cmd.extend(["--", schedule])
     if prompt:
         cmd.append(prompt)
 
     result = subprocess.run(
         cmd,
         capture_output=True,
+        check=False,
         timeout=10,
     )
     if result.returncode != 0:

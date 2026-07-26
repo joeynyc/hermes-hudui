@@ -1,10 +1,13 @@
-from datetime import datetime
 import json
+from datetime import datetime
 
 from backend.collectors.models import SessionInfo
 from backend.services.replay_exporter import export_json
 from backend.services.replay_normalizer import normalize_session
-from backend.services.replay_verifier import verify_replay_files
+from backend.services.replay_verifier import (
+    MAX_VERIFICATION_FILE_BYTES,
+    verify_replay_files,
+)
 
 
 def _detail():
@@ -72,3 +75,46 @@ def test_verify_replay_files_rejects_tampered_signature(tmp_path, monkeypatch) -
 
     assert result["ok"] is False
     assert "Receipt signature is invalid." in result["errors"]
+
+
+def test_verify_replay_files_rejects_paths_outside_replay_root(tmp_path, monkeypatch) -> None:
+    replay_root = tmp_path / "replays"
+    outside = tmp_path / "outside.json"
+    replay_root.mkdir()
+    outside.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HUD_REPLAY_DIR", str(replay_root))
+
+    result = verify_replay_files(str(outside), str(outside))
+
+    assert result["ok"] is False
+    assert result["errors"] == [
+        "Verification files must be inside the configured Replay directory",
+        "Verification files must be inside the configured Replay directory",
+    ]
+
+
+def test_verify_replay_files_rejects_symlink_escape(tmp_path, monkeypatch) -> None:
+    replay_root = tmp_path / "replays"
+    replay_root.mkdir()
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}", encoding="utf-8")
+    linked = replay_root / "linked.json"
+    linked.symlink_to(outside)
+    monkeypatch.setenv("HERMES_HUD_REPLAY_DIR", str(replay_root))
+
+    result = verify_replay_files(str(linked), str(linked))
+
+    assert result["ok"] is False
+    assert all("configured Replay directory" in error for error in result["errors"])
+
+
+def test_verify_replay_files_rejects_oversized_input(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HUD_REPLAY_DIR", str(tmp_path))
+    oversized = tmp_path / "oversized.json"
+    with oversized.open("wb") as handle:
+        handle.truncate(MAX_VERIFICATION_FILE_BYTES + 1)
+
+    result = verify_replay_files(str(oversized), str(oversized))
+
+    assert result["ok"] is False
+    assert all("is larger than" in error for error in result["errors"])

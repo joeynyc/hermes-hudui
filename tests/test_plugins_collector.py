@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from backend.collectors.plugins import (
     collect_plugins,
     install_plugin,
@@ -144,8 +146,9 @@ def test_install_plugin_clones_git_url_into_user_plugins(tmp_path: Path) -> None
 
     assert result["ok"] is True
     assert calls[0][0][:2] == ["git", "clone"]
-    assert calls[0][0][2] == "https://github.com/example/my-plugin.git"
-    assert calls[0][0][3] == str(hermes_dir / "plugins" / "my-plugin")
+    assert calls[0][0][2] == "--"
+    assert calls[0][0][3] == "https://github.com/example/my-plugin.git"
+    assert calls[0][0][4] == str(hermes_dir / "plugins" / "my-plugin")
 
 
 def test_update_plugin_pulls_user_git_plugin(tmp_path: Path) -> None:
@@ -167,3 +170,61 @@ def test_update_plugin_pulls_user_git_plugin(tmp_path: Path) -> None:
     assert result["ok"] is True
     assert calls[0][0] == ["git", "pull", "--ff-only"]
     assert calls[0][1]["cwd"] == str(hermes_dir / "plugins" / "alpha")
+
+
+@pytest.mark.parametrize("name", [".", "..", ".hidden", "../outside", "nested/plugin"])
+def test_plugin_mutations_reject_unsafe_names(tmp_path: Path, name: str) -> None:
+    hermes_dir = tmp_path / "hermes"
+
+    with pytest.raises(ValueError, match="Invalid plugin name"):
+        set_plugin_enabled(name, True, hermes_dir=str(hermes_dir))
+
+
+def test_plugin_mutations_reject_symlink_escape(tmp_path: Path) -> None:
+    hermes_dir = tmp_path / "hermes"
+    plugins_dir = hermes_dir / "plugins"
+    outside = tmp_path / "outside"
+    _write_agent_plugin(outside, "alpha")
+    plugins_dir.mkdir(parents=True)
+    (plugins_dir / "alpha").symlink_to(outside / "alpha", target_is_directory=True)
+
+    with pytest.raises(ValueError, match="escapes"):
+        set_plugin_enabled("alpha", True, hermes_dir=str(hermes_dir))
+
+
+def test_plugin_manifest_symlink_escape_is_rejected(tmp_path: Path) -> None:
+    hermes_dir = tmp_path / "hermes"
+    plugin_dir = hermes_dir / "plugins" / "alpha"
+    plugin_dir.mkdir(parents=True)
+    outside_manifest = tmp_path / "outside.yaml"
+    outside_manifest.write_text("name: outside\nenabled: false\n", encoding="utf-8")
+    (plugin_dir / "plugin.yaml").symlink_to(outside_manifest)
+
+    with pytest.raises(ValueError, match="escapes"):
+        set_plugin_enabled("alpha", True, hermes_dir=str(hermes_dir))
+
+    assert "enabled: false" in outside_manifest.read_text(encoding="utf-8")
+
+
+def test_plugin_mutation_rejects_symlinked_plugin_root_escape(tmp_path: Path) -> None:
+    hermes_dir = tmp_path / "hermes"
+    outside = tmp_path / "outside"
+    hermes_dir.mkdir()
+    _write_agent_plugin(outside, "alpha")
+    (hermes_dir / "plugins").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="Plugin directory escapes"):
+        set_plugin_enabled("alpha", True, hermes_dir=str(hermes_dir))
+
+
+def test_install_plugin_rejects_git_option_injection(tmp_path: Path) -> None:
+    called = False
+
+    def fake_runner(*args, **kwargs):
+        nonlocal called
+        called = True
+
+    with pytest.raises(ValueError, match="Invalid plugin identifier"):
+        install_plugin("--upload-pack=malicious", hermes_dir=str(tmp_path), runner=fake_runner)
+
+    assert called is False

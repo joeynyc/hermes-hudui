@@ -1,7 +1,7 @@
 """Plugin hub endpoints."""
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.collectors.plugins import (
     collect_plugins,
@@ -10,13 +10,14 @@ from backend.collectors.plugins import (
     set_plugin_enabled,
     update_plugin,
 )
+
 from .serialize import to_dict
 
 router = APIRouter()
 
 
 class PluginInstallRequest(BaseModel):
-    identifier: str
+    identifier: str = Field(min_length=1, max_length=2048)
 
 
 @router.get("/plugins")

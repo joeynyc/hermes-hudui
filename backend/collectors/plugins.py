@@ -17,23 +17,53 @@ try:
 except ImportError:
     _yaml = None
 
-_PLUGIN_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+_PLUGIN_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_MAX_MANIFEST_BYTES = 1024 * 1024
+
+
+def _safe_descendant(root: Path, *parts: str) -> Path:
+    """Return a canonical path below root, rejecting traversal and symlinks out."""
+    canonical_root = root.expanduser().resolve()
+    candidate = canonical_root.joinpath(*parts).resolve(strict=False)
+    try:
+        candidate.relative_to(canonical_root)
+    except ValueError as exc:
+        raise ValueError("Plugin path escapes the configured plugin directory") from exc
+    if candidate == canonical_root:
+        raise ValueError("Plugin path must name a child of the plugin directory")
+    return candidate
+
+
+def _user_plugins_dir(hermes_dir: str | None = None) -> Path:
+    hermes_root = Path(default_hermes_dir(hermes_dir)).expanduser().resolve()
+    plugins_dir = (hermes_root / "plugins").resolve(strict=False)
+    try:
+        plugins_dir.relative_to(hermes_root)
+    except ValueError as exc:
+        raise ValueError("Plugin directory escapes the Hermes directory") from exc
+    return plugins_dir
+
+
+def _read_text(path: Path) -> str:
+    if path.stat().st_size > _MAX_MANIFEST_BYTES:
+        raise ValueError(f"Plugin manifest is larger than {_MAX_MANIFEST_BYTES} bytes")
+    return path.read_text(encoding="utf-8")
 
 
 def _read_json(path: Path) -> dict[str, Any]:
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(_read_text(path))
         return data if isinstance(data, dict) else {}
-    except Exception:
+    except (OSError, UnicodeError, ValueError, TypeError):
         return {}
 
 
 def _read_agent_manifest(plugin_dir: Path) -> dict[str, Any]:
     for filename in ("plugin.yaml", "plugin.yml"):
-        path = plugin_dir / filename
+        path = _safe_descendant(plugin_dir, filename)
         if path.exists():
-            return load_yaml(path.read_text(encoding="utf-8"))
-    path = plugin_dir / "manifest.json"
+            return load_yaml(_read_text(path))
+    path = _safe_descendant(plugin_dir, "manifest.json")
     if path.exists():
         return _read_json(path)
     return {}
@@ -75,7 +105,9 @@ def _write_yaml(path: Path, data: dict[str, Any]) -> None:
 
 
 def _plugin_from_dir(plugin_dir: Path, source: str) -> PluginInfo | None:
-    dashboard_manifest = _read_json(plugin_dir / "dashboard" / "manifest.json")
+    dashboard_manifest = _read_json(
+        _safe_descendant(plugin_dir, "dashboard", "manifest.json")
+    )
     agent_manifest = _read_agent_manifest(plugin_dir)
     if not dashboard_manifest and not agent_manifest:
         return None
@@ -115,7 +147,7 @@ def _plugin_from_dir(plugin_dir: Path, source: str) -> PluginInfo | None:
         provides_tools=_list_tools(agent_manifest),
         auth_required=bool(agent_manifest.get("auth_required")),
         auth_command=str(agent_manifest.get("auth_command") or ""),
-        can_update_git=source == "user" and (plugin_dir / ".git").exists(),
+        can_update_git=source == "user" and _safe_descendant(plugin_dir, ".git").exists(),
     )
 
 
@@ -169,12 +201,20 @@ def collect_plugins(
         project_dir,
         include_project_plugins,
     ):
+        root = root.expanduser().resolve()
         if not root.is_dir():
             continue
         for child in sorted(root.iterdir()):
-            if not child.is_dir():
+            try:
+                plugin_dir = _safe_descendant(root, child.name)
+            except ValueError:
                 continue
-            plugin = _plugin_from_dir(child, source)
+            if not plugin_dir.is_dir():
+                continue
+            try:
+                plugin = _plugin_from_dir(plugin_dir, source)
+            except ValueError:
+                continue
             if not plugin or plugin.name in seen:
                 continue
             seen.add(plugin.name)
@@ -184,14 +224,14 @@ def collect_plugins(
 
 
 def _validate_plugin_name(name: str) -> str:
-    if not name or not _PLUGIN_NAME_RE.match(name):
+    if not _PLUGIN_NAME_RE.fullmatch(name):
         raise ValueError("Invalid plugin name")
     return name
 
 
 def _find_user_plugin(name: str, hermes_dir: str | None = None) -> Path:
     name = _validate_plugin_name(name)
-    plugin_dir = Path(default_hermes_dir(hermes_dir)) / "plugins" / name
+    plugin_dir = _safe_descendant(_user_plugins_dir(hermes_dir), name)
     if not plugin_dir.is_dir():
         raise FileNotFoundError(f"User plugin not found: {name}")
     return plugin_dir
@@ -205,14 +245,14 @@ def set_plugin_enabled(
     """Enable or disable a user plugin by updating its manifest."""
     plugin_dir = _find_user_plugin(name, hermes_dir)
     for filename in ("plugin.yaml", "plugin.yml"):
-        path = plugin_dir / filename
+        path = _safe_descendant(plugin_dir, filename)
         if path.exists():
-            data = load_yaml(path.read_text(encoding="utf-8"))
+            data = load_yaml(_read_text(path))
             data["enabled"] = bool(enabled)
             _write_yaml(path, data)
             return {"ok": True, "name": name, "enabled": bool(enabled)}
 
-    path = plugin_dir / "manifest.json"
+    path = _safe_descendant(plugin_dir, "manifest.json")
     if path.exists():
         data = _read_json(path)
         data["enabled"] = bool(enabled)
@@ -229,7 +269,7 @@ def set_dashboard_plugin_hidden(
 ) -> dict[str, Any]:
     """Hide or show a user dashboard plugin tab by updating its manifest."""
     plugin_dir = _find_user_plugin(name, hermes_dir)
-    path = plugin_dir / "dashboard" / "manifest.json"
+    path = _safe_descendant(plugin_dir, "dashboard", "manifest.json")
     if not path.exists():
         raise FileNotFoundError(f"Dashboard manifest not found: {name}")
     data = _read_json(path)
@@ -242,8 +282,7 @@ def set_dashboard_plugin_hidden(
 
 def _plugin_name_from_identifier(identifier: str) -> str:
     raw = identifier.rstrip("/").rsplit("/", 1)[-1]
-    if raw.endswith(".git"):
-        raw = raw[:-4]
+    raw = raw.removesuffix(".git")
     return _validate_plugin_name(raw)
 
 
@@ -256,15 +295,19 @@ def install_plugin(
     identifier = identifier.strip()
     if not identifier:
         raise ValueError("Plugin identifier is required")
+    if len(identifier) > 2048:
+        raise ValueError("Plugin identifier is too long")
+    if identifier.startswith("-") or "\x00" in identifier:
+        raise ValueError("Invalid plugin identifier")
     name = _plugin_name_from_identifier(identifier)
-    plugins_dir = Path(default_hermes_dir(hermes_dir)) / "plugins"
+    plugins_dir = _user_plugins_dir(hermes_dir)
     plugins_dir.mkdir(parents=True, exist_ok=True)
-    destination = plugins_dir / name
+    destination = _safe_descendant(plugins_dir, name)
     if destination.exists():
         raise FileExistsError(f"Plugin already exists: {name}")
 
     result = runner(
-        ["git", "clone", identifier, str(destination)],
+        ["git", "clone", "--", identifier, str(destination)],
         capture_output=True,
         text=True,
         timeout=120,
@@ -281,7 +324,7 @@ def update_plugin(
 ) -> dict[str, Any]:
     """Update a user-installed git plugin with fast-forward pull."""
     plugin_dir = _find_user_plugin(name, hermes_dir)
-    if not (plugin_dir / ".git").exists():
+    if not _safe_descendant(plugin_dir, ".git").exists():
         raise RuntimeError(f"Plugin is not git-backed: {name}")
     result = runner(
         ["git", "pull", "--ff-only"],

@@ -8,15 +8,14 @@ import sqlite3
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import urlopen
-from urllib.error import URLError
 
 from ..cache import get_cached_or_compute
 from .memory import MEMORY_MAX_CHARS, USER_MAX_CHARS
-from .utils import default_hermes_dir, safe_get
 from .models import ProfileInfo, ProfilesState
+from .utils import default_hermes_dir, safe_get
 
 _ALIAS_BIN_DIRS = [os.path.expanduser("~/.local/bin"), "/usr/local/bin"]
 
@@ -231,10 +230,17 @@ def _check_gateway_status(profile_name: str) -> str:
 
 def _check_server_status(base_url: str) -> str:
     """Check if a local llama-server is responding."""
-    if not base_url or "localhost" not in base_url:
+    if not base_url:
         return "n/a"
     try:
         parsed = urlparse(base_url)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            return "n/a"
         health_url = f"{parsed.scheme}://{parsed.netloc}/health"
         resp = urlopen(health_url, timeout=2)
         return "running" if resp.status == 200 else "stopped"

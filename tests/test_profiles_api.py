@@ -18,6 +18,7 @@ import pytest
 import yaml
 from fastapi import HTTPException
 
+import backend.collectors.profiles as profile_collector
 from backend.api.profiles import (
     ProfileCompressionEdit,
     ProfileEditBody,
@@ -150,3 +151,39 @@ def test_update_leaves_no_temp_files(hermes_home: Path) -> None:
 def test_profile_edit_routes_are_registered(registered_routes) -> None:
     assert ("GET", "/api/profiles/{profile_name}/edit") in registered_routes
     assert ("PUT", "/api/profiles/{profile_name}/edit") in registered_routes
+
+
+def test_profile_health_check_allows_literal_loopback_host(monkeypatch) -> None:
+    calls = []
+
+    class Response:
+        status = 200
+
+    def fake_urlopen(url, **kwargs):
+        calls.append((url, kwargs))
+        return Response()
+
+    monkeypatch.setattr(profile_collector, "urlopen", fake_urlopen)
+
+    assert profile_collector._check_server_status("http://127.0.0.1:8080/v1") == "running"
+    assert calls == [("http://127.0.0.1:8080/health", {"timeout": 2})]
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://localhost.evil.example",
+        "http://localhost@evil.example",
+        "file://localhost/etc/passwd",
+    ],
+)
+def test_profile_health_check_rejects_non_loopback_targets(
+    monkeypatch, base_url: str
+) -> None:
+    monkeypatch.setattr(
+        profile_collector,
+        "urlopen",
+        lambda *args, **kwargs: pytest.fail("urlopen must not be called"),
+    )
+
+    assert profile_collector._check_server_status(base_url) == "n/a"

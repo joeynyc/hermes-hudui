@@ -7,6 +7,11 @@ All notable changes to hermes-hudui are documented here.
 ### Added
 - **Agent compatibility diagnostics** — the Health tab now reports two drift checks: *Agent data layout* (flags pre-0.17 `~/.hermes/` paths the HUD no longer reads, e.g. `memory/` → `memories/`, root `jobs.json` → `cron/jobs.json`) and *Agent schema version* (compares the live `state.db` schema version against the HUD-verified baseline). Both degrade to `ok` when data is absent and only warn on positively-detected drift, turning silent blank tabs into an actionable warning. Verified against **Hermes Agent v0.17.0** (state.db schema v16); baseline lives in `backend/collectors/health.py` (`VERIFIED_AGENT_VERSION`, `TESTED_SCHEMA_VERSIONS`).
 
+### Security
+- **Local path and process boundaries** — plugin mutations and Replay verification now enforce canonical configured roots, reject traversal and symlink escapes, and bound manifest/replay reads. Plugin installation and cron creation terminate option parsing before user-controlled values.
+- **Gateway and profile probes** — gateway action files now use fixed allowlisted names, private no-follow file handling, atomic state writes, and bounded log reads. Local model health probes accept only literal loopback HTTP(S) hosts.
+- **Error and integrity hardening** — Replay and gateway endpoints no longer expose unexpected exception details, malformed receipt signatures fail closed, and cache fingerprints use SHA-256.
+
 ---
 
 ## [0.10.0] — 2026-06-27

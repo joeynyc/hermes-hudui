@@ -41,7 +41,7 @@ def test_create_builds_minimal_command(captured_calls) -> None:
     assert result == {"status": "ok"}
 
     cmd, kwargs = captured_calls[0]
-    assert cmd == ["/usr/bin/hermes", "cron", "create", "@daily"]
+    assert cmd == ["/usr/bin/hermes", "cron", "create", "--", "@daily"]
     assert kwargs.get("timeout") == 10
     assert kwargs.get("capture_output") is True
 
@@ -65,20 +65,14 @@ def test_create_builds_full_command_in_order(captured_calls) -> None:
         "/usr/bin/hermes",
         "cron",
         "create",
-        "--name",
-        "morning",
-        "--deliver",
-        "email",
-        "--repeat",
-        "3",
-        "--skill",
-        "seo",
-        "--skill",
-        "social",
-        "--script",
-        "/opt/run.sh",
-        "--workdir",
-        "/home/user/proj",
+        "--name=morning",
+        "--deliver=email",
+        "--repeat=3",
+        "--skill=seo",
+        "--skill=social",
+        "--script=/opt/run.sh",
+        "--workdir=/home/user/proj",
+        "--",
         "0 9 * * *",
         "do the thing",
     ]
@@ -123,7 +117,7 @@ def test_delete_builds_remove_command(captured_calls) -> None:
     assert result == {"status": "ok"}
 
     cmd, _ = captured_calls[0]
-    assert cmd == ["/usr/bin/hermes", "cron", "remove", "job_42"]
+    assert cmd == ["/usr/bin/hermes", "cron", "remove", "--", "job_42"]
 
 
 def test_delete_propagates_cli_failure(monkeypatch) -> None:
@@ -137,6 +131,27 @@ def test_delete_propagates_cli_failure(monkeypatch) -> None:
         delete_job("ghost")
     assert exc.value.status_code == 500
     assert "no such job" in exc.value.detail
+
+
+def test_delete_rejects_option_injection(captured_calls) -> None:
+    with pytest.raises(HTTPException) as exc:
+        delete_job("--help")
+    assert exc.value.status_code == 400
+    assert captured_calls == []
+
+
+def test_create_terminates_options_before_user_positionals(captured_calls) -> None:
+    create_job(CreateCronBody(schedule="--help", prompt="--version"))
+
+    cmd, _ = captured_calls[0]
+    assert cmd[-3:] == ["--", "--help", "--version"]
+
+
+def test_create_rejects_nul_bytes(captured_calls) -> None:
+    with pytest.raises(HTTPException) as exc:
+        create_job(CreateCronBody(schedule="@daily", prompt="hello\x00world"))
+    assert exc.value.status_code == 400
+    assert captured_calls == []
 
 
 def test_missing_hermes_binary_returns_503(monkeypatch) -> None:

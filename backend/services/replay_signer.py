@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import base64
+import binascii
 from datetime import datetime
 from pathlib import Path
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 
 
 def _message(receipt_hash: str, redacted_replay_hash: str) -> bytes:
@@ -55,5 +59,5 @@ def verify_signature(receipt_hash: str, redacted_replay_hash: str, signature: st
         public = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key))
         public.verify(base64.b64decode(signature), _message(receipt_hash, redacted_replay_hash))
         return True
-    except (InvalidSignature, ValueError):
+    except (InvalidSignature, ValueError, TypeError, binascii.Error):
         return False

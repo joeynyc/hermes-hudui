@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from backend.collectors.replay import get_replay_detail, list_replay_runs
 from backend.api.serialize import to_dict
+from backend.collectors.replay import get_replay_detail, list_replay_runs
 from backend.services.replay_exporter import (
+    export_clip_html,
     export_fork_json,
     export_html,
     export_json,
-    export_clip_html,
     export_markdown,
     export_share_card_png,
     get_replay_gallery,
-    get_skill_provenance_index,
     get_replay_settings,
+    get_skill_provenance_index,
     publish_replay,
     record_gallery_view,
     unpublish_replay,
@@ -32,6 +34,7 @@ from backend.services.replay_redactor import apply_manual_redactions, scan_repla
 from backend.services.replay_verifier import verify_replay_files
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class ManualRedactionRule(BaseModel):
@@ -50,8 +53,8 @@ class ReplaySettingsRequest(BaseModel):
 
 
 class ReplayVerifyRequest(BaseModel):
-    receipt_path: str
-    replay_path: str
+    receipt_path: str = Field(min_length=1, max_length=4096)
+    replay_path: str = Field(min_length=1, max_length=4096)
 
 
 class ReplayPublishRequest(BaseModel):
@@ -92,7 +95,11 @@ async def put_settings(request: ReplaySettingsRequest):
 
 @router.post("/replay/verify")
 async def verify_replay(request: ReplayVerifyRequest):
-    return verify_replay_files(request.receipt_path, request.replay_path)
+    try:
+        return verify_replay_files(request.receipt_path, request.replay_path)
+    except Exception:
+        logger.exception("Replay verification failed")
+        raise HTTPException(status_code=400, detail="Replay verification failed") from None
 
 
 @router.get("/replay/remote")

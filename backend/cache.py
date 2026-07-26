@@ -46,7 +46,7 @@ def _get_dir_mtime(path: str | Path) -> float:
 def _compute_mtime_hash(*mtimes: float) -> str:
     """Create hash from mtimes for cache key validation."""
     data = ",".join(f"{m:.6f}" for m in mtimes)
-    return hashlib.md5(data.encode()).hexdigest()[:16]
+    return hashlib.sha256(data.encode()).hexdigest()[:16]
 
 
 def cache_with_mtime(
@@ -77,7 +77,7 @@ def cache_with_mtime(
             # Build cache key from function name + args
             args_key = str(args) + str(sorted(kwargs.items()))
             cache_key = (
-                f"{func.__name__}:{hashlib.md5(args_key.encode()).hexdigest()[:16]}"
+                f"{func.__name__}:{hashlib.sha256(args_key.encode()).hexdigest()[:16]}"
             )
 
             # Expand paths and get current mtimes
