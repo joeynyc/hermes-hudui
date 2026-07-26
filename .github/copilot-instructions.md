@@ -15,12 +15,12 @@ hermes-hudui --dev              # backend with auto-reload on :3001
 cd frontend && npm run dev      # frontend dev server on :5173
 ```
 
-Requires Python 3.11+ and Node 18+. Backend depends on hermes-hud package for collectors.
+Requires Python 3.11+ and Node 22.12+. The backend vendors its own collectors.
 
 ## Architecture
 
 ```
-backend/main.py         FastAPI app, CORS, static files
+backend/main.py         FastAPI app, local-origin boundary, static files
 backend/api/*.py        One route file per data domain
 backend/api/serialize.py  Dataclass → JSON conversion
 backend/static/         Built frontend (copied from frontend/dist)
@@ -30,12 +30,12 @@ frontend/src/components/ One panel component per tab/data source
 frontend/src/index.css  Theme CSS variables, panel system, effects
 ```
 
-**Data flow:** hermes_hud.collectors → FastAPI endpoints → SWR fetch → React panels
+**Data flow:** backend collectors → FastAPI endpoints → SWR fetch → React panels
 
 ## Key Patterns
 
-- Backend imports hermes_hud.collectors directly — no data logic duplication
-- 4 themes as CSS custom properties on `[data-theme]` attribute
+- Backend owns collectors under `backend/collectors/`
+- 5 themes as CSS custom properties on `[data-theme]` attribute
 - Panel component with title-in-border pattern
 - SWR for data fetching with configurable refresh intervals
 - Keyboard shortcuts (1-9 tabs, t theme, r refresh)

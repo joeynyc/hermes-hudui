@@ -64,7 +64,7 @@ export function useWebSocket(): UseWebSocketReturn {
     if (wsRef.current?.readyState === WebSocket.OPEN) return
 
     setStatus('connecting')
-    
+
     const ws = new WebSocket(WS_URL)
     wsRef.current = ws
 
@@ -119,7 +119,7 @@ export function useWebSocket(): UseWebSocketReturn {
               mutate(
                 (key) => typeof key === 'string' && key.startsWith(`/api${path}`),
                 undefined,
-                { 
+                {
                   revalidate: true,
                   rollbackOnError: true,
                   populateCache: true,
@@ -132,7 +132,7 @@ export function useWebSocket(): UseWebSocketReturn {
           mutate(
             (key) => typeof key === 'string' && key.startsWith('/api/dashboard'),
             undefined,
-            { 
+            {
               revalidate: true,
               rollbackOnError: true,
               populateCache: true,
@@ -151,7 +151,7 @@ export function useWebSocket(): UseWebSocketReturn {
       // Exponential backoff reconnect
       const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000)
       reconnectAttemptsRef.current++
-      
+
       reconnectTimeoutRef.current = setTimeout(() => {
         connectRef.current()
       }, delay)
@@ -173,10 +173,6 @@ export function useWebSocket(): UseWebSocketReturn {
   }, [])
 
   useEffect(() => {
-    // Opening the socket is the "subscribe to an external system" case this rule
-    // exempts; the setStatus('connecting') inside connect() is just the status
-    // indicator following the socket, not derived render state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     connect()
 
     // Heartbeat to keep connection alive

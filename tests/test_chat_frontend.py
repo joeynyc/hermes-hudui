@@ -10,7 +10,7 @@ def test_chat_panel_refreshes_backend_composer_state() -> None:
     assert "loadComposerState" in panel
     assert "loadComposerState()" in panel
     assert "window.setInterval(loadComposerState, 1000)" in panel
-    assert "[activeSessionId, isStreaming, loadComposerState]" in panel
+    assert "[selectedSessionId, isStreaming, loadComposerState]" in panel
     assert "status={composerState.status}" in panel
     assert "firstTokenMs={composerState.firstTokenMs}" in panel
     assert "<ChatDiagnostics" in panel

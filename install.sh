@@ -40,20 +40,19 @@ if [ -z "$PYTHON" ]; then
 fi
 echo "✔ Python: $($PYTHON --version)"
 
-# Check Node.js (18+)
+# Check Node.js (22.12+; required by Vite 8)
 if ! command -v node &>/dev/null; then
-    echo "✗ Node.js 18+ required"
+    echo "✗ Node.js 22.12+ required"
     if [ "$OS" = "macos" ]; then
         echo "  Install: brew install node"
     else
-        echo "  Install: curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs"
+        echo "  Install: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs"
     fi
     exit 1
 fi
 
-NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "✗ Node.js 18+ required (found v$NODE_VERSION)"
+if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || (major === 22 && minor >= 12) ? 0 : 1)'; then
+    echo "✗ Node.js 22.12+ required (found $(node --version))"
     exit 1
 fi
 echo "✔ Node: $(node --version)"
@@ -91,18 +90,9 @@ source venv/bin/activate
 pip install -e . -q
 echo "✔ Backend installed"
 
-# Build frontend
+# Build and deploy frontend
 echo "→ Building frontend..."
-cd frontend
-npm install --silent 2>/dev/null
-npm run build 2>/dev/null
-cd ..
-
-# Copy to static
-echo "→ Deploying frontend..."
-mkdir -p backend/static/assets
-cp frontend/dist/index.html backend/static/
-cp frontend/dist/assets/* backend/static/assets/
+"$PWD/scripts/build_frontend.sh"
 echo "✔ Frontend built and deployed"
 
 echo ""

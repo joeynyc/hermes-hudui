@@ -10,6 +10,7 @@ export default function ChatPanel() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const { available: chatAvailable, loading: checkingAvailability } = useChatAvailability()
   const { sessions, loading: loadingSessions, createSession, refresh: refreshSessions } = useChatSessions()
+  const selectedSessionId = activeSessionId ?? sessions[0]?.id ?? null
   const {
     messages,
     isStreaming,
@@ -19,7 +20,7 @@ export default function ChatPanel() {
     cancelStream,
     loadComposerState,
     regenerate,
-  } = useChat(activeSessionId)
+  } = useChat(selectedSessionId)
   const streamingSessionIds = useStreamingSessions()
 
   const handleCreateSession = useCallback(async () => {
@@ -31,11 +32,11 @@ export default function ChatPanel() {
 
   const handleSendMessage = useCallback(
     async (content: string) => {
-      if (activeSessionId) {
+      if (selectedSessionId) {
         await sendMessage(content)
       }
     },
-    [activeSessionId, sendMessage]
+    [selectedSessionId, sendMessage]
   )
 
   const restoringRef = useRef(false)
@@ -75,26 +76,21 @@ export default function ChatPanel() {
       })()
     } else if (sessions.length === 0 && saved.length === 0) {
       // Truly fresh — create initial session
-      handleCreateSession()
+      // The async callback updates state after the server creates the session.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void handleCreateSession()
     }
   }, [checkingAvailability, chatAvailable, sessions.length, loadingSessions, createSession, handleCreateSession])
 
-  // Auto-select first session when sessions exist but none is active
   useEffect(() => {
-    if (!activeSessionId && sessions.length > 0) {
-      setActiveSessionId(sessions[0].id)
-    }
-  }, [activeSessionId, sessions])
-
-  useEffect(() => {
-    if (!activeSessionId) return
+    if (!selectedSessionId) return
 
     loadComposerState()
     if (!isStreaming) return
 
     const interval = window.setInterval(loadComposerState, 1000)
     return () => window.clearInterval(interval)
-  }, [activeSessionId, isStreaming, loadComposerState])
+  }, [selectedSessionId, isStreaming, loadComposerState])
 
   // Show loading while checking availability
   if (checkingAvailability) {
@@ -158,7 +154,7 @@ export default function ChatPanel() {
         <div className="w-48 shrink-0 overflow-hidden">
           <SessionSidebar
             sessions={sessions}
-            activeSessionId={activeSessionId}
+            activeSessionId={selectedSessionId}
             onSelect={setActiveSessionId}
             onCreate={handleCreateSession}
             loading={loadingSessions}
@@ -169,7 +165,7 @@ export default function ChatPanel() {
 
         {/* Chat area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {activeSessionId ? (
+          {selectedSessionId ? (
             <>
               <MessageThread messages={messages} isStreaming={isStreaming} onRegenerate={(id) => regenerate({ messageId: id })} />
               <ChatDiagnostics

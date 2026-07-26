@@ -36,6 +36,9 @@ _FABLE_5 = {"input": 10.00, "output": 50.00, "cache_read": 1.00, "cache_write": 
 _SONNET_5 = {"input": 2.00, "output": 10.00, "cache_read": 0.20, "cache_write": 2.50, "reasoning": 2.00}
 _SONNET_5_STANDARD = {"input": 3.00, "output": 15.00, "cache_read": 0.30, "cache_write": 3.75, "reasoning": 3.00}
 _GPT52 = {"input": 1.75, "output": 14.00, "cache_read": 0.88, "cache_write": 1.75, "reasoning": 1.75}
+_GPT56_SOL = {"input": 5.00, "output": 30.00, "cache_read": 0.50, "cache_write": 6.25, "reasoning": 5.00}
+_GPT56_TERRA = {"input": 2.50, "output": 15.00, "cache_read": 0.25, "cache_write": 3.125, "reasoning": 2.50}
+_GPT56_LUNA = {"input": 1.00, "output": 6.00, "cache_read": 0.10, "cache_write": 1.25, "reasoning": 1.00}
 _O_MINI = {"input": 1.10, "output": 4.40, "cache_read": 0.55, "cache_write": 1.10, "reasoning": 1.10}
 _DEEPSEEK_V3 = {"input": 0.27, "output": 1.10, "cache_read": 0.07, "cache_write": 0.27, "reasoning": 0.27}
 _GROK_FAST = {"input": 0.30, "output": 0.50, "cache_read": 0.075, "cache_write": 0.30, "reasoning": 0.30}
@@ -74,6 +77,9 @@ MODEL_PRICING: dict[str, dict] = {
     "claude-3-7-sonnet": _SONNET_4X,
     "claude-3.7-sonnet": _SONNET_4X,
     # OpenAI
+    "gpt-5.6-sol": _GPT56_SOL,
+    "gpt-5.6-terra": _GPT56_TERRA,
+    "gpt-5.6-luna": _GPT56_LUNA,
     "gpt-5.4-pro": {"input": 30.00, "output": 180.00, "cache_read": 15.00, "cache_write": 30.00, "reasoning": 30.00},
     "gpt-5.4": {"input": 2.50, "output": 15.00, "cache_read": 1.25, "cache_write": 2.50, "reasoning": 2.50},
     "gpt-5.5": _GPT52,
@@ -127,23 +133,30 @@ _SORTED_KEYS = sorted(MODEL_PRICING, key=len, reverse=True)
 _SMALL_MODEL_RE = re.compile(r'[-_](?:1\.?[58]b|3b|4b|7b|8b|9b|13b|14b)\b')
 
 
+def _normalize_claude_version(model: str) -> str:
+    """Normalize Claude-style dot versions without changing IDs such as GPT-5.4."""
+    if "claude" not in model:
+        return model
+    return re.sub(r"(?<=\d)\.(?=\d)", "-", model)
+
+
 def _get_pricing(model: str | None) -> tuple[dict, str]:
     """Return (pricing_dict, matched_key) for a model."""
     if not model:
         return DEFAULT_PRICING, "unpriced (unknown)"
-    # Exact match
-    if model in MODEL_PRICING:
-        return MODEL_PRICING[model], model
-    # Partial match (strip provider prefix, try longest key first)
-    base = model.split("/")[-1] if "/" in model else model
-    for key in _SORTED_KEYS:
-        if base.startswith(key):
-            return MODEL_PRICING[key], key
+    lower_model = model.lower()
+    candidates = (lower_model, _normalize_claude_version(lower_model))
+    for candidate in dict.fromkeys(candidates):
+        if candidate in MODEL_PRICING:
+            return MODEL_PRICING[candidate], candidate
+        base = candidate.rsplit("/", 1)[-1]
+        for key in _SORTED_KEYS:
+            if base.startswith(key):
+                return MODEL_PRICING[key], key
     # Check if it's a local/inference/free model (zero cost)
-    lower = model.lower()
-    if any(kw in lower for kw in ("local", "localhost", ":free", "gemma", "nemotron", "mimo-free")):
+    if any(kw in lower_model for kw in ("local", "localhost", ":free", "gemma", "nemotron", "mimo-free")):
         return _FREE, "local (free)"
-    if _SMALL_MODEL_RE.search(lower):
+    if _SMALL_MODEL_RE.search(lower_model):
         return _FREE, "local (free)"
     return DEFAULT_PRICING, f"unpriced ({model})"
 

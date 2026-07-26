@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from '../i18n'
 
 const HERMES_ASCII = [
@@ -21,7 +21,7 @@ export default function BootScreen({ onComplete }: BootScreenProps) {
   const [fadeOut, setFadeOut] = useState(false)
   const [skipped, setSkipped] = useState(false)
 
-  const BOOT_LINES = [
+  const bootLines = useMemo(() => [
     `☤ ${t('boot.version')} v0.10.0`,
     '',
     `${t('boot.connecting')}`,
@@ -34,15 +34,15 @@ export default function BootScreen({ onComplete }: BootScreenProps) {
     '"I think, therefore I process."',
     '',
     t('boot.ready') + '.',
-  ]
+  ], [t])
 
   useEffect(() => {
     const asciiTimer = setTimeout(() => setAsciiVisible(true), 200)
-    const lineTimers = BOOT_LINES.map((_, i) =>
+    const lineTimers = bootLines.map((_, i) =>
       setTimeout(() => setVisibleLines(i + 1), 600 + i * 100)
     )
-    const fadeTimer = setTimeout(() => setFadeOut(true), 600 + BOOT_LINES.length * 100 + 400)
-    const completeTimer = setTimeout(onComplete, 600 + BOOT_LINES.length * 100 + 800)
+    const fadeTimer = setTimeout(() => setFadeOut(true), 600 + bootLines.length * 100 + 400)
+    const completeTimer = setTimeout(onComplete, 600 + bootLines.length * 100 + 800)
 
     return () => {
       clearTimeout(asciiTimer)
@@ -50,7 +50,7 @@ export default function BootScreen({ onComplete }: BootScreenProps) {
       clearTimeout(fadeTimer)
       clearTimeout(completeTimer)
     }
-  }, [onComplete])
+  }, [bootLines, onComplete])
 
   const handleSkip = () => {
     if (!skipped) {
@@ -82,7 +82,7 @@ export default function BootScreen({ onComplete }: BootScreenProps) {
 
       {/* Boot text */}
       <div className="text-[13px] w-[90vw] max-w-[400px] px-4">
-        {BOOT_LINES.slice(0, visibleLines).map((line, i) => (
+        {bootLines.slice(0, visibleLines).map((line, i) => (
           <div key={i} className="py-0.5" style={{
             color: line.startsWith('"') ? 'var(--hud-accent)' :
                    line.startsWith('☤') ? 'var(--hud-primary)' :

@@ -60,7 +60,7 @@ export default function PluginsPanel() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const plugins = data?.plugins || []
+  const plugins = useMemo(() => data?.plugins ?? [], [data?.plugins])
   const dashboardPlugins = useMemo(
     () => plugins.filter(plugin => plugin.has_dashboard_manifest),
     [plugins]

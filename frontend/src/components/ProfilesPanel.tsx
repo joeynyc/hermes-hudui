@@ -155,9 +155,6 @@ function ProfileEditor({
 
   useEffect(() => {
     let cancelled = false
-    setForm(null)
-    setError('')
-    setBusy(true)
     fetchProfileEdit(profileName)
       .then(data => {
         if (cancelled) return
@@ -649,6 +646,7 @@ export default function ProfilesPanel() {
     <Panel title={`${t('profiles.panelTitle')} — ${data?.total || 0} ${t('profiles.total')}, ${data?.active_count || 0} ${t('profiles.activeCount')}`} className="col-span-full">
       {editing && (
         <ProfileEditor
+          key={editing}
           profileName={editing}
           options={options || {}}
           onClose={() => setEditing(null)}

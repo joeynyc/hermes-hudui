@@ -1,29 +1,38 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { lazy, Suspense, useState, useCallback, useMemo, useEffect } from 'react'
 import { ThemeProvider } from './hooks/useTheme'
 import { useWebSocket } from './hooks/useWebSocket'
 import TopBar, { type TabId, TABS } from './components/TopBar'
 import CommandPalette from './components/CommandPalette'
 import BootScreen from './components/BootScreen'
 import DashboardPanel from './components/DashboardPanel'
-import MemoryPanel from './components/MemoryPanel'
-import SkillsPanel from './components/SkillsPanel'
-import SessionsPanel from './components/SessionsPanel'
-import ReplayPanel from './components/ReplayPanel'
-import CronPanel from './components/CronPanel'
-import ProjectsPanel from './components/ProjectsPanel'
-import HealthPanel from './components/HealthPanel'
-import AgentsPanel from './components/AgentsPanel'
-import ChatPanel from './components/ChatPanel'
-import ProfilesPanel from './components/ProfilesPanel'
-import TokenCostsPanel from './components/TokenCostsPanel'
-import CorrectionsPanel from './components/CorrectionsPanel'
-import PatternsPanel from './components/PatternsPanel'
-import SudoPanel from './components/SudoPanel'
-import ProvidersPanel from './components/ProvidersPanel'
-import GatewayPanel from './components/GatewayPanel'
-import ModelInfoPanel from './components/ModelInfoPanel'
-import PluginsPanel from './components/PluginsPanel'
 import { useI18n } from './i18n'
+
+const MemoryPanel = lazy(() => import('./components/MemoryPanel'))
+const SkillsPanel = lazy(() => import('./components/SkillsPanel'))
+const SessionsPanel = lazy(() => import('./components/SessionsPanel'))
+const ReplayPanel = lazy(() => import('./components/ReplayPanel'))
+const CronPanel = lazy(() => import('./components/CronPanel'))
+const ProjectsPanel = lazy(() => import('./components/ProjectsPanel'))
+const HealthPanel = lazy(() => import('./components/HealthPanel'))
+const AgentsPanel = lazy(() => import('./components/AgentsPanel'))
+const ChatPanel = lazy(() => import('./components/ChatPanel'))
+const ProfilesPanel = lazy(() => import('./components/ProfilesPanel'))
+const TokenCostsPanel = lazy(() => import('./components/TokenCostsPanel'))
+const CorrectionsPanel = lazy(() => import('./components/CorrectionsPanel'))
+const PatternsPanel = lazy(() => import('./components/PatternsPanel'))
+const SudoPanel = lazy(() => import('./components/SudoPanel'))
+const ProvidersPanel = lazy(() => import('./components/ProvidersPanel'))
+const GatewayPanel = lazy(() => import('./components/GatewayPanel'))
+const ModelInfoPanel = lazy(() => import('./components/ModelInfoPanel'))
+const PluginsPanel = lazy(() => import('./components/PluginsPanel'))
+
+function PanelFallback() {
+  return (
+    <div className="p-4 text-[13px] animate-pulse" style={{ color: 'var(--hud-text-dim)' }}>
+      Loading…
+    </div>
+  )
+}
 
 function TabContent({ tab }: { tab: TabId }) {
   switch (tab) {
@@ -134,13 +143,17 @@ export default function App() {
       {activeTab === 'chat' ? (
         <div style={{ flex: '1 1 0', height: 0, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div className="p-2 h-full">
-            <TabContent tab={activeTab} />
+            <Suspense fallback={<PanelFallback />}>
+              <TabContent tab={activeTab} />
+            </Suspense>
           </div>
         </div>
       ) : (
         <div className="overflow-y-auto" style={{ flex: '1 1 0', height: 0, minHeight: 0 }}>
           <div className={`grid gap-2 p-2 ${GRID_CLASS[activeTab]}`}>
-            <TabContent tab={activeTab} />
+            <Suspense fallback={<PanelFallback />}>
+              <TabContent tab={activeTab} />
+            </Suspense>
           </div>
         </div>
       )}

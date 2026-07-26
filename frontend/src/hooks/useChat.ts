@@ -358,7 +358,9 @@ export function useChatSessions() {
   }, [loadSessions])
 
   useEffect(() => {
-    loadSessions()
+    // Fetching the server-backed list on mount intentionally updates this hook.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadSessions()
   }, [loadSessions])
 
   return { sessions, loading, createSession, endSession, refresh: loadSessions }

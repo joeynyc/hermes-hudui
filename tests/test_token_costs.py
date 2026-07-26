@@ -219,6 +219,32 @@ def test_current_anthropic_models_are_all_priced() -> None:
         assert pricing["input"] > 0 and pricing["output"] > 0, f"{model_id} priced at $0"
 
 
+def test_current_hermes_openai_models_are_all_priced() -> None:
+    expected = {
+        "gpt-5.6-sol": (5.00, 30.00),
+        "gpt-5.6-terra": (2.50, 15.00),
+        "gpt-5.6-luna": (1.00, 6.00),
+    }
+    for model_id, (input_price, output_price) in expected.items():
+        for candidate in (model_id, f"openai/{model_id}", f"{model_id}-pro"):
+            pricing, matched = _get_pricing(candidate)
+            assert matched == model_id
+            assert pricing["input"] == input_price
+            assert pricing["output"] == output_price
+
+
+def test_model_pricing_lookup_is_case_insensitive_and_claude_dot_compatible() -> None:
+    pricing, matched = _get_pricing("Anthropic/Claude-Opus-4.6-20260701")
+    assert matched == "claude-opus-4-6"
+    assert pricing["input"] == 5.00
+    assert pricing["output"] == 25.00
+
+    pricing, matched = _get_pricing("OpenAI/GPT-5.4")
+    assert matched == "gpt-5.4"
+    assert pricing["input"] == 2.50
+    assert pricing["output"] == 15.00
+
+
 def test_legacy_opus_keeps_the_15_75_tier() -> None:
     """Opus 4.1/4.0 predate the $5/$25 tier and must not be repriced downward."""
     for model_id in ("claude-opus-4-1", "claude-opus-4-0"):

@@ -17,7 +17,7 @@ pip install -e .
 
 # Install frontend
 cd frontend
-npm install
+npm ci
 
 # Run dev servers (two terminals)
 hermes-hudui --dev          # backend on :3001
@@ -41,7 +41,7 @@ frontend/src/lib/         Shared formatting utilities
 
 ## Key Patterns
 
-- Backend imports hermes-hud collectors directly — never duplicate data logic
+- Backend owns its collectors under `backend/collectors/`; keep them decoupled from hermes-agent internals
 - **Caching** — Use `@cache_with_mtime()` decorator for expensive collectors (see `backend/collectors/sessions.py`)
 - **Real-time Updates** — File watcher detects changes → clears cache → broadcasts WebSocket event → frontend SWR revalidates silently
 - Each frontend panel fetches its own endpoint via `useApi('/path')` with `keepPreviousData: true`
@@ -79,6 +79,7 @@ Add a `[data-theme="name"]` block in `frontend/src/index.css` with the 10 CSS va
 - One feature per PR
 - Include screenshots for UI changes
 - Make sure `npm run build` passes with no errors
+- Run `npm run lint` and `python -m pytest`
 - Test on at least one theme
 
 ## Questions

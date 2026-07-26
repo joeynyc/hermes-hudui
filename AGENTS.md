@@ -33,14 +33,14 @@ npm run preview  # Preview production build
 hermes-hudui                         # Serve on :3001
 hermes-hudui --port 8080             # Custom port
 hermes-hudui --hermes-dir /path      # Override ~/.hermes/ location
+hermes-hudui --host 0.0.0.0 --unsafe-allow-remote  # Trusted LAN only
 ```
 
 ### Release Workflow
 ```bash
 # 1. Bump version in: pyproject.toml, App.tsx, BootScreen.tsx, CHANGELOG.md
 # 2. Build + deploy static assets:
-cd frontend && npm run build && cd ..
-rm -rf backend/static/assets/* && cp -r frontend/dist/* backend/static/
+./scripts/build_frontend.sh
 # 3. Commit, tag, push:
 git add -f backend/static/assets/ && git commit && git tag v0.X.Y && git push --tags
 # 4. GitHub release:
@@ -70,7 +70,7 @@ FastAPI Backend (Python)
 - **`chat/engine.py`** — Singleton `ChatEngine` spawning `hermes chat -q <msg> -Q --source tool` per message. Captures `hermes_session_id` from stdout, queries `state.db` post-completion for tool calls and reasoning.
 - **`chat/streamer.py`** — SSE event emitter (`emit_token`, `emit_tool_start`, `emit_tool_end`, `emit_reasoning`, `emit_done`).
 - **`cache.py`** — Mtime-based cache invalidation (sessions 30s, skills 60s, patterns 60s, profiles 45s). Endpoints: `GET /api/cache/stats`, `POST /api/cache/clear`.
-- **`websocket.py`** — Watches `~/.hermes/` via `watchfiles`, broadcasts `data_changed` events. Frontend auto-refreshes via SWR mutation.
+- **`file_watcher.py`** — Watches `~/.hermes/` via native filesystem events and broadcasts `data_changed` events. Frontend auto-refreshes via SWR mutation.
 
 ### Frontend (`frontend/src/`)
 
@@ -90,13 +90,13 @@ FastAPI Backend (Python)
 
 **Memory editing:** Sync `def` endpoints (not `async`) so FastAPI auto-threads blocking I/O. File locking via `fcntl.flock` on `.lock` files. Atomic writes via `tempfile.mkstemp` + `os.replace`. Entries delimited by `\n§\n`.
 
-**Styling:** Tailwind for layout, CSS variables (`var(--hud-*)`) for theming. Funnel Sans font. Four themes: `ai`, `blade-runner`, `fsociety`, `anime`.
+**Styling:** Tailwind for layout, CSS variables (`var(--hud-*)`) for theming. Funnel Sans font. Five themes: `ai`, `hermes`, `blade-runner`, `fsociety`, `anime`.
 
 **TypeScript:** Use `any` for API response types — schema owned by backend.
 
 **Version strings:** Must stay in sync across `pyproject.toml`, `App.tsx` status bar, `BootScreen.tsx`, and `CHANGELOG.md`.
 
-**Token costs:** Hardcoded `MODEL_PRICING` in `backend/api/token_costs.py`. Falls back to Codex Opus pricing for unknown models.
+**Token costs:** Hardcoded `MODEL_PRICING` in `backend/api/token_costs.py`. Unknown models remain explicitly unpriced instead of inheriting a misleading rate.
 
 **Sudo collector:** `backend/collectors/sudo.py` mines `state.db` tool-output messages via FTS for sudo command executions, parses `config.yaml` for approval/security settings, and tails `logs/gateway.log` for explicitly approved commands. Outcome classification: `exit_code=-1` + "approval" in error = blocked; password error in output = failed; `exit_code=0` = success.
 

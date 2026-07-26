@@ -5,7 +5,11 @@ from pathlib import Path
 from backend.collectors.health import collect_health
 
 
-def _make_state_db(path: Path, include_messages: bool = True) -> None:
+def _make_state_db(
+    path: Path,
+    include_messages: bool = True,
+    schema_version: int | None = None,
+) -> None:
     conn = sqlite3.connect(path)
     conn.executescript(
         """
@@ -41,6 +45,9 @@ def _make_state_db(path: Path, include_messages: bool = True) -> None:
             );
             """
         )
+    if schema_version is not None:
+        conn.execute("CREATE TABLE schema_version (version INTEGER NOT NULL)")
+        conn.execute("INSERT INTO schema_version (version) VALUES (?)", (schema_version,))
     conn.execute(
         "INSERT INTO sessions (id, source, started_at, message_count, model, billing_provider) VALUES (?, ?, ?, ?, ?, ?)",
         ("s1", "cli", time.time() - 60, 2, "claude-sonnet-4-6", "anthropic"),
@@ -149,3 +156,34 @@ def test_health_diagnostics_are_sorted_by_severity(tmp_path: Path, monkeypatch) 
     for items in (state.readiness, state.freshness, state.database, state.features):
         severities = [item.status for item in items]
         assert severities == sorted(severities, key={"broken": 0, "warning": 1, "ok": 2}.get)
+
+
+def test_health_accepts_current_agent_schema(tmp_path: Path, monkeypatch) -> None:
+    _make_state_db(tmp_path / "state.db", schema_version=23)
+
+    monkeypatch.setattr("backend.collectors.health._check_pid_file", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.collectors.health._check_systemd_service", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.collectors.health._check_process", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.collectors.health._hermes_cli_info", lambda: ("ok", "/usr/bin/hermes", "hermes 0.19.0"))
+
+    state = collect_health(str(tmp_path))
+    database = _by_name(state.database)
+
+    assert database["Agent schema version"].status == "ok"
+    assert "v23" in database["Agent schema version"].detail
+
+
+def test_health_warns_for_unverified_future_schema(tmp_path: Path, monkeypatch) -> None:
+    _make_state_db(tmp_path / "state.db", schema_version=24)
+
+    monkeypatch.setattr("backend.collectors.health._check_pid_file", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.collectors.health._check_systemd_service", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.collectors.health._check_process", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.collectors.health._hermes_cli_info", lambda: ("ok", "/usr/bin/hermes", "hermes 0.19.0"))
+
+    state = collect_health(str(tmp_path))
+    database = _by_name(state.database)
+
+    assert database["Agent schema version"].status == "warning"
+    assert "schema v24" in database["Agent schema version"].detail
+    assert "v0.19.0" in database["Agent schema version"].suggested_fix

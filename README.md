@@ -23,9 +23,9 @@ hermes-hudui
 
 Open http://localhost:3001
 
-**Requirements:** Python 3.11+, Node.js 18+, a running Hermes agent with data in `~/.hermes/`
+**Requirements:** Python 3.11+, Node.js 22.12+, a running Hermes agent with data in `~/.hermes/`
 
-**Verified against Hermes Agent v0.17.0** (state.db schema v16). The HUD reads `~/.hermes/` and the `hermes` CLI directly, so it tracks the agent's on-disk layout. The Health tab's *Agent data layout* and *Agent schema version* checks flag when your agent's data drifts from this baseline.
+**Verified against Hermes Agent v0.19.0** (state.db schema v23), with compatibility retained for schema v16. The HUD reads `~/.hermes/` and the `hermes` CLI directly, so it tracks the agent's on-disk layout. The Health tab's *Agent data layout* and *Agent schema version* checks flag when your agent's data drifts from this baseline.
 
 On future runs:
 ```bash
@@ -43,6 +43,10 @@ Gateway visibility includes managed-tool routing for web search, image generatio
 The Plugin Hub shows installed dashboard and agent plugins, extension entry points, runtime status, required auth commands, and safe enable/disable/update actions.
 
 Updates in real time via WebSocket. No manual refresh needed.
+
+The server is local-only by default. It rejects cross-site browser requests, untrusted WebSocket origins, and non-loopback host access. To bind it to a trusted LAN deliberately, pass `--host 0.0.0.0 --unsafe-allow-remote`; add each browser origin with `--allowed-origin https://hud.example.test`. Put authentication and TLS in front of the HUD before exposing it beyond a trusted network.
+
+Native filesystem events are used by default. For NFS, WSL1, VM shares, or bind mounts that do not deliver events reliably, set `HERMES_HUD_FORCE_POLLING=1`.
 
 ## Hermes Replay
 

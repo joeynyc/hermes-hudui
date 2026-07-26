@@ -147,11 +147,8 @@ Replaced the custom SSE stack with the Vercel AI SDK, added regenerate, and squa
 
 These are possibilities, not commitments.
 
-- **Cron job creation** — a form to schedule new jobs without touching `jobs.json` by hand
 - **Memory search** — filter/search across memory entries in the HUD
 - **Live token counter** — show context usage in real time during streaming
-- **Profile editing** — edit profile fields (soul, model, tools) from the Profiles tab
-- **Export** — download session transcripts or memory snapshots as markdown
 - **Mobile layout** — responsive polish for small screens
 - **Dark/light mode** — fifth theme option using system preference
 - **Multi-agent** — support for switching between multiple hermes profiles in the chat tab

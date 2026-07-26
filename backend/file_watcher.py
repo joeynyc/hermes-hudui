@@ -44,6 +44,12 @@ DIR_PATTERNS = {
 }
 
 
+def _force_polling() -> bool:
+    """Use polling only when explicitly requested for a network/shared filesystem."""
+    value = os.environ.get("HERMES_HUD_FORCE_POLLING", "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _detect_change_type(path: Path) -> list[str]:
     """Determine what data types changed based on file path."""
     path_str = str(path)
@@ -153,16 +159,8 @@ class FileWatcherService:
         logger.info("File watcher stopped")
 
     def _get_watch_paths(self) -> list[Path]:
-        """Get paths to watch - main dir and key subdirectories."""
-        paths = [self.hermes_dir]
-
-        # Add key subdirectories if they exist
-        for subdir in ["skills", "profiles", "memories", "cron", "projects", "logs", "plugins"]:
-            path = self.hermes_dir / subdir
-            if path.exists():
-                paths.append(path)
-
-        return paths
+        """Watch the root once; watchfiles monitors descendants recursively."""
+        return [self.hermes_dir]
 
     def _run_sync_watcher(self) -> None:
         """Synchronous watcher to run in background thread."""
@@ -189,14 +187,12 @@ class FileWatcherService:
         try:
             watch_paths = [str(p) for p in self._get_watch_paths()]
 
-            # Polling fallback for environments where inotify/FSEvents don't
-            # work (NFS, Docker bind mounts, WSL1, VM shared folders).
-            # poll_delay_ms=2000 aligns with MIN_BROADCAST_INTERVAL (5s) so we
-            # don't waste CPU scanning faster than we can broadcast.
+            # Native inotify/FSEvents is the low-CPU default. Polling remains an
+            # explicit fallback for NFS, Docker bind mounts, WSL1, and VM shares.
             for changes in watch(
                 *watch_paths,
                 stop_event=self._stop_event,
-                force_polling=True,
+                force_polling=_force_polling(),
                 poll_delay_ms=2000,
                 watch_filter=_HermesFilter(),
             ):

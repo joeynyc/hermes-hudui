@@ -125,7 +125,7 @@ function ActionRunner({
     }
   }, [])
 
-  const pollOnce = useCallback(async () => {
+  const pollOnce = useCallback(async function pollOnce() {
     try {
       const res = await fetch(`/api/actions/${actionName}/status`)
       if (!res.ok) throw new Error(`${res.status}`)

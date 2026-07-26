@@ -866,7 +866,7 @@ export default function ReplayPanel() {
   const [filter, setFilter] = useState<ReplayFilter>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const runs = data?.runs || []
+  const runs = useMemo(() => data?.runs ?? [], [data?.runs])
   const visibleRuns = useMemo(() => {
     const q = query.trim().toLowerCase()
     return runs.filter(run => {
