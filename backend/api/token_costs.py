@@ -250,6 +250,29 @@ def _finalize_bucket(bucket: dict) -> dict:
     }
 
 
+def _empty_cost_report() -> dict:
+    """Return the normal response shape when Hermes has no session database yet."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    empty = _finalize_bucket(_new_bucket())
+    return {
+        "today": {"date": today, **empty},
+        "all_time": {**empty, "tool_call_count": 0},
+        "by_model": [],
+        "top_sessions": [],
+        "trend_summary": {
+            "recent_7d_cost_usd": 0.0,
+            "previous_7d_cost_usd": 0.0,
+            "delta_usd": 0.0,
+            "delta_pct": None,
+            "direction": "flat",
+        },
+        "daily_trend": [],
+        "pricing_table": {
+            key: dict(pricing) for key, pricing in MODEL_PRICING.items()
+        },
+    }
+
+
 @router.get("/token-costs")
 async def get_token_costs():
     """Token usage and estimated costs, broken down by model."""
@@ -257,13 +280,20 @@ async def get_token_costs():
     db_path = str(Path(hermes_dir) / "state.db")
 
     if not Path(db_path).exists():
-        return {"error": "state.db not found"}
+        return _empty_cost_report()
 
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
     today = datetime.now().strftime("%Y-%m-%d")
+
+    cur.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sessions'"
+    )
+    if cur.fetchone() is None:
+        conn.close()
+        return _empty_cost_report()
 
     cur.execute("PRAGMA table_info(sessions)")
     columns = {row["name"] for row in cur.fetchall()}

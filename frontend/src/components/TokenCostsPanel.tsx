@@ -88,11 +88,21 @@ function ModelCard({ m }: { m: any }) {
 
 export default function TokenCostsPanel() {
   const { t } = useTranslation()
-  const { data, isLoading } = useApi('/token-costs', 60000)
+  const { data, isLoading, error } = useApi('/token-costs', 60000)
 
   // Only show loading on initial load
   if (isLoading && !data) {
     return <Panel title={t('tokenCosts.title')} className="col-span-full"><div className="glow text-[13px] animate-pulse">{t('tokenCosts.loading')}</div></Panel>
+  }
+
+  if (error || !data || data.error) {
+    return (
+      <Panel title={t('tokenCosts.title')} className="col-span-full">
+        <div className="text-[13px]" style={{ color: 'var(--hud-error)' }}>
+          {data?.error || error?.message || 'Token cost data is unavailable.'}
+        </div>
+      </Panel>
+    )
   }
 
   const {

@@ -43,6 +43,37 @@ def _insert_session(path: Path, **values) -> None:
         )
 
 
+def test_token_costs_returns_empty_report_before_state_db_exists(
+    tmp_path: Path, monkeypatch
+) -> None:
+    hermes_dir = tmp_path / "hermes"
+    hermes_dir.mkdir()
+    monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
+
+    data = asyncio.run(get_token_costs())
+
+    assert data["today"]["session_count"] == 0
+    assert data["all_time"]["total_tokens"] == 0
+    assert data["all_time"]["tool_call_count"] == 0
+    assert data["by_model"] == []
+    assert data["daily_trend"] == []
+    assert data["trend_summary"]["direction"] == "flat"
+
+
+def test_token_costs_returns_empty_report_before_sessions_table_exists(
+    tmp_path: Path, monkeypatch
+) -> None:
+    hermes_dir = tmp_path / "hermes"
+    hermes_dir.mkdir()
+    sqlite3.connect(hermes_dir / "state.db").close()
+    monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
+
+    data = asyncio.run(get_token_costs())
+
+    assert data["all_time"]["session_count"] == 0
+    assert data["top_sessions"] == []
+
+
 def test_token_costs_reports_actual_deltas_cache_savings_and_top_sessions(
     tmp_path: Path, monkeypatch
 ) -> None:
