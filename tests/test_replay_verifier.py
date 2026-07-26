@@ -110,11 +110,29 @@ def test_verify_replay_files_rejects_symlink_escape(tmp_path, monkeypatch) -> No
 
 def test_verify_replay_files_rejects_oversized_input(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HERMES_HUD_REPLAY_DIR", str(tmp_path))
-    oversized = tmp_path / "oversized.json"
-    with oversized.open("wb") as handle:
-        handle.truncate(MAX_VERIFICATION_FILE_BYTES + 1)
+    run_dir = tmp_path / "runs" / "replay_0123456789ab"
+    run_dir.mkdir(parents=True)
+    receipt = run_dir / "receipt.json"
+    replay = run_dir / "replay.redacted.json"
+    for path in (receipt, replay):
+        with path.open("wb") as handle:
+            handle.truncate(MAX_VERIFICATION_FILE_BYTES + 1)
 
-    result = verify_replay_files(str(oversized), str(oversized))
+    result = verify_replay_files(str(receipt), str(replay))
 
     assert result["ok"] is False
     assert all("is larger than" in error for error in result["errors"])
+
+
+def test_verify_replay_files_accepts_root_relative_paths(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HUD_REPLAY_DIR", str(tmp_path))
+    detail = _detail()
+    export_json(detail)
+
+    replay_id = detail.run.replay_id
+    result = verify_replay_files(
+        f"runs/{replay_id}/receipt.json",
+        f"runs/{replay_id}/replay.redacted.json",
+    )
+
+    assert result["ok"] is True

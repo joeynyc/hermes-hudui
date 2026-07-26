@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -12,23 +13,50 @@ from backend.services.replay_normalizer import _hash_payload
 from backend.services.replay_signer import verify_signature
 
 MAX_VERIFICATION_FILE_BYTES = 10 * 1024 * 1024
+_REPLAY_ID_RE = re.compile(r"^replay_[a-f0-9]{12}$")
+_VERIFICATION_FILENAMES = {
+    "receipt": "receipt.json",
+    "replay": "replay.redacted.json",
+}
 
 
-def _safe_replay_path(path: str) -> Path:
+def _safe_replay_path(path: str, label: str) -> Path:
     root = default_replay_dir().expanduser().resolve()
-    candidate = Path(path).expanduser().resolve(strict=False)
+    expected_filename = _VERIFICATION_FILENAMES[label]
+    supplied = path.strip()
+    if supplied.startswith("~/"):
+        supplied = f"{Path.home()}/{supplied[2:]}"
+    parts = supplied.split("/")
+    if (
+        len(parts) < 3
+        or parts[-3] != "runs"
+        or parts[-1] != expected_filename
+        or not _REPLAY_ID_RE.fullmatch(parts[-2])
+    ):
+        raise ValueError(
+            "Verification files must be inside the configured Replay directory"
+        )
+
+    replay_id = parts[-2]
+    candidate = (root / "runs" / replay_id / expected_filename).resolve(strict=False)
     try:
         candidate.relative_to(root)
     except ValueError as exc:
-        raise ValueError("Verification files must be inside the configured Replay directory") from exc
-    if candidate == root:
-        raise ValueError("Verification path must name a file")
+        raise ValueError(
+            "Verification files must be inside the configured Replay directory"
+        ) from exc
+
+    relative_path = f"runs/{replay_id}/{expected_filename}"
+    if supplied not in {str(candidate), relative_path}:
+        raise ValueError(
+            "Verification files must be inside the configured Replay directory"
+        )
     return candidate
 
 
 def _load_json(path: str, label: str) -> tuple[dict[str, Any] | None, str | None]:
     try:
-        safe_path = _safe_replay_path(path)
+        safe_path = _safe_replay_path(path, label)
         flags = os.O_RDONLY
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
@@ -67,7 +95,7 @@ def _receipt_hash(receipt: dict[str, Any]) -> str:
     return _hash_payload(payload)
 
 
-def verify_replay_files(receipt_path: str, replay_path: str) -> dict[str, Any]:
+def _verify_replay_files(receipt_path: str, replay_path: str) -> dict[str, Any]:
     receipt, receipt_error = _load_json(receipt_path, "receipt")
     replay_doc, replay_error = _load_json(replay_path, "replay")
     errors = [error for error in [receipt_error, replay_error] if error]
@@ -134,3 +162,15 @@ def verify_replay_files(receipt_path: str, replay_path: str) -> dict[str, Any]:
         "signature_algorithm": receipt.get("signature_algorithm"),
         "signature_valid": bool(signature or public_key) and "Receipt signature is invalid." not in errors and "Unsupported signature algorithm." not in errors and "Incomplete signature fields." not in errors,
     }
+
+
+def verify_replay_files(receipt_path: str, replay_path: str) -> dict[str, Any]:
+    """Verify an exported Replay pair without allowing exceptions to escape."""
+    try:
+        return _verify_replay_files(receipt_path, replay_path)
+    except Exception:
+        return {
+            "ok": False,
+            "errors": ["Replay verification failed."],
+            "warnings": [],
+        }

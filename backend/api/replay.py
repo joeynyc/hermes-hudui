@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import logging
-
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -34,7 +32,6 @@ from backend.services.replay_redactor import apply_manual_redactions, scan_repla
 from backend.services.replay_verifier import verify_replay_files
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 
 class ManualRedactionRule(BaseModel):
@@ -95,11 +92,7 @@ async def put_settings(request: ReplaySettingsRequest):
 
 @router.post("/replay/verify")
 async def verify_replay(request: ReplayVerifyRequest):
-    try:
-        return verify_replay_files(request.receipt_path, request.replay_path)
-    except Exception:
-        logger.exception("Replay verification failed")
-        raise HTTPException(status_code=400, detail="Replay verification failed") from None
+    return verify_replay_files(request.receipt_path, request.replay_path)
 
 
 @router.get("/replay/remote")
