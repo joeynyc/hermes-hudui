@@ -34,6 +34,9 @@ PROVIDER_OPTIONS = [
     "custom",
 ]
 
+# MiniMax provider presets — regional endpoints and model metadata.
+# Source: https://platform.minimax.io/docs/api-reference/api-overview (as of 2026-07-08)
+# Source: https://platform.minimaxi.com/docs/api-reference/api-overview (as of 2026-07-08)
 MINIMAX_MODELS = [
     {
         "id": "MiniMax-M3",

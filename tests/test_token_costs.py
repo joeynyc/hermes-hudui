@@ -371,48 +371,16 @@ def test_token_costs_prices_minimax_models(tmp_path: Path, monkeypatch) -> None:
     m3 = next(m for m in data["by_model"] if m["model"] == "MiniMax-M3")
     m27 = next(m for m in data["by_model"] if m["model"] == "MiniMax-M2.7")
     assert m3["matched_pricing"] == "minimax-m3"
-    assert m3["estimated_cost_usd"] == 1.35
+    assert m3["estimated_cost_usd"] == 2.70
     assert m27["matched_pricing"] == "minimax-m2.7"
     assert m27["estimated_cost_usd"] == 1.94
     m3_pricing = data["pricing_table"]["minimax-m3"]
-    assert m3_pricing["input"] == 0.30
-    assert m3_pricing["output"] == 1.20
-    assert m3_pricing["cache_read"] == 0.06
+    assert m3_pricing["input"] == 0.60
+    assert m3_pricing["output"] == 2.40
+    assert m3_pricing["cache_read"] == 0.12
     assert m3_pricing["cache_write"] is None
-    assert m3_pricing["pricing_tiers"] == [
-        {
-            "service_tier": "standard",
-            "input_tokens_lte": 512_000,
-            "input": 0.30,
-            "output": 1.20,
-            "cache_read": 0.06,
-            "cache_write": None,
-        },
-        {
-            "service_tier": "standard",
-            "input_tokens_gt": 512_000,
-            "input": 0.60,
-            "output": 2.40,
-            "cache_read": 0.12,
-            "cache_write": None,
-        },
-        {
-            "service_tier": "priority",
-            "input_tokens_lte": 512_000,
-            "input": 0.45,
-            "output": 1.80,
-            "cache_read": 0.09,
-            "cache_write": None,
-        },
-        {
-            "service_tier": "priority",
-            "input_tokens_gt": 512_000,
-            "input": 0.90,
-            "output": 3.60,
-            "cache_read": 0.18,
-            "cache_write": None,
-        },
-    ]
+    assert m3_pricing["reasoning"] == 0.60
+    assert "pricing_tiers" not in m3_pricing
     assert data["pricing_table"]["minimax-m2.7"] == {
         "input": 0.30,
         "output": 1.20,
@@ -422,7 +390,7 @@ def test_token_costs_prices_minimax_models(tmp_path: Path, monkeypatch) -> None:
     }
 
 
-def test_token_costs_uses_upper_standard_tier_for_large_minimax_m3_prompt(
+def test_token_costs_prices_large_minimax_m3_prompt(
     tmp_path: Path, monkeypatch
 ) -> None:
     hermes_dir = tmp_path / "hermes"
