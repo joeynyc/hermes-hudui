@@ -35,7 +35,7 @@ frontend/src/index.css  Theme CSS variables, panel system, effects
 ## Key Patterns
 
 - Backend owns collectors under `backend/collectors/`
-- 5 themes as CSS custom properties on `[data-theme]` attribute
+- 6 themes as CSS custom properties on `[data-theme]` attribute
 - Panel component with title-in-border pattern
 - SWR for data fetching with configurable refresh intervals
 - Keyboard shortcuts (1-9 tabs, t theme, r refresh)

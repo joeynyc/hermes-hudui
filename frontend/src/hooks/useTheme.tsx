@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 
-export type ThemeId = 'ai' | 'hermes-official' | 'blade-runner' | 'fsociety' | 'anime'
+export type ThemeId = 'ai' | 'hermes-official' | 'blade-runner' | 'fsociety' | 'anime' | 'logis'
 
 interface ThemeContextValue {
   theme: ThemeId
@@ -19,6 +19,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 export const THEMES: { id: ThemeId; labelKey: string; icon: string }[] = [
   { id: 'ai', labelKey: 'theme.neuralAwakening', icon: '◆' },
   { id: 'hermes-official', labelKey: 'theme.hermesOfficial', icon: '☤' },
+  { id: 'logis', labelKey: 'theme.logis', icon: '⟐' },
   { id: 'blade-runner', labelKey: 'theme.bladeRunner', icon: '◈' },
   { id: 'fsociety', labelKey: 'theme.fsociety', icon: '▣' },
   { id: 'anime', labelKey: 'theme.anime', icon: '◎' },
