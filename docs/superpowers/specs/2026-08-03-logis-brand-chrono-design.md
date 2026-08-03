@@ -1,6 +1,6 @@
-# LOGIS Brand, Chronometer & Shell Unification — Design Spec
+# LOGIS Brand, Chronometer, Pomodoro & Shell Unification — Design Spec
 
-**Date:** 3 August 2026  
+**Date:** 3 August 2026 (revised same day)  
 **Status:** Awaiting user review before implementation plan  
 **Repos:** `e-LOGIS-Dashboard` (primary UI work) + `e-Hermes-HUD-UI` (theme-first amalgamation)  
 **IP posture:** Product branding is **LOGIS**. Visual language may be *inspired by* popular HUD motifs; never ship user-facing **JARVIS** labels, theme ids, aria text, docs headings or comments that present JARVIS as the product name.
@@ -12,42 +12,52 @@
 | # | Topic | Decision |
 |---|--------|----------|
 | Env | Workspace | **A** — multi-repo Cloud environment including `e-LOGIS-Dashboard` |
-| 1 | Chronometer placement | **B** — in `.topbar-right`, immediately before status LEDs |
+| 1 | Chronometer placement | **B** — in `.topbar-right`, immediately before status LEDs / system radial |
 | 2 | Chronometer ring | **Month dial** — arc fills `monthIndex / 12` (August → 8/12). Day-of-month remains centred in the ring for glanceable date. |
 | 3 | Clock interaction | Click the time readout toggles **12h ↔ 24h**. Preference persists in `localStorage`. Secondary: double-click toggles **local ↔ UTC** (also persisted). |
-| 4 | Time source | Client `new Date()` (browser local TZ; UTC mode uses `Date` UTC getters / `timeZone: 'UTC'`). |
-| 5 | First build scope | Chronometer **+** capacity/power ring |
+| 4 | Time source | Client `new Date()` (browser local TZ; UTC mode uses UTC getters / `timeZone: 'UTC'`). |
+| 5 | First build scope | Chronometer **+** capacity/power ring **+** Pomodoro dial **+** top-right system radial |
 | 6 | Amalgamation depth | **Theme first** — add Hermes `logis` theme / shared tokens before Channel shell work |
-| 7 | Radial app menu | **Include** — see §5 |
+| 7 | Radial app menu | **Top-right system radial** — settings / HUD switch / close (etc.). **Not** Command Matrix (commands stay left). See §5 |
 | 8 | Brand sweep | **Everything** — UI copy, aria-labels, docs, ADRs, README, comments, theme ids, i18n keys, tests, screenshots alt text. Prefer `logis` over any `jarvis` identifier. |
+| 9 | Pomodoro | Top-centre-ish dial; right-click → configure popup; custom focus/break durations; auto-start break on expiry; research-backed colour stages. See §6 |
+| 10 | Customisation direction | Evolve toward a **Plasma-like widget panel** (show/hide, order, per-widget config). See §8 |
 
 ---
 
 ## 2. Goals
 
 1. Establish **LOGIS** as the sole product trademark string in the dashboard and related Hermes theme naming.
-2. Ship a header **chronometer** and **capacity ring** that feel native to the existing cyan OLED HUD.
-3. Add a **radial app menu** that surfaces Command Matrix actions without inventing a second navigation model.
+2. Ship header **meters** (chronometer, capacity, Pomodoro) that feel native to the cyan OLED HUD.
+3. Add a **top-right system radial** for shell chrome (settings, HUD switch, close) — keep left side for commands.
 4. Land a Hermes HUD **`logis` theme** so Monitor and Channel share design DNA before any deeper merge.
+5. Set an architecture path toward **user-configurable widgets** (Plasma-inspired), without boiling the ocean in v1.
 
-Non-goals for this phase: full Monitor↔Channel shell merge, porting LOGIS panels into React, changing loopback/ADR security posture, or wiring live Kokoro/gateway in Cloud VMs.
+Non-goals for this phase: full Monitor↔Channel shell merge, porting LOGIS panels into React, changing loopback/ADR security posture, shipping a real KDE Plasmoid binary, or wiring live Kokoro/gateway in Cloud VMs.
 
 ---
 
-## 3. Architecture
+## 3. Architecture & topbar layout
+
+```
+LOGIS topbar (left → right)
+┌──────────┬─────────────────────┬──────────────────────────────┐
+│ Brand    │  Pomodoro (centre)  │  Chrono · Capacity · LEDs ·  │
+│ reactor  │                     │  System radial (⚙⋯)          │
+└──────────┴─────────────────────┴──────────────────────────────┘
+Left column: Command Matrix (unchanged)
+```
 
 ```
 LOGIS (:8787)                          Hermes HUD (:5173 / :3001)
 ┌─────────────────────────────┐        ┌──────────────────────────┐
-│ topbar                      │        │ themes: … + logis        │
-│  brand (reactor) ──radial   │        │ --hud-* ← LOGIS palette  │
-│  … chrono + capacity … LEDs  │        │ (shared token mapping)   │
-│ Command Matrix / Channel /  │        │ Channel shell = later    │
-│ Wayfinder·Kanban            │        └──────────────────────────┘
-└─────────────────────────────┘
+│ topbar widgets (panel-like) │        │ themes: … + logis        │
+│ Command Matrix (left)       │        │ --hud-* ← LOGIS palette  │
+│ Channel / Wayfinder·Kanban  │        │ Channel shell = later    │
+└─────────────────────────────┘        └──────────────────────────┘
 ```
 
-Keep MECE surfaces: LOGIS = channel/act; Hermes = monitor/read. Unify chrome and tokens first.
+Keep MECE surfaces: LOGIS = channel/act; Hermes = monitor/read. Unify chrome and tokens first. Treat the topbar as an early **widget containment** (Plasma analogy: a panel holding applets).
 
 ---
 
@@ -60,160 +70,201 @@ Inside `.topbar-right`, order left→right:
 1. `.chrono` (month dial + time/date readout)  
 2. `.capacity` (power/capacity ring)  
 3. `.leds` (existing status LEDs)  
-4. settings / close controls  
+4. **System radial trigger** (replaces/absorbs scattered settings/close affordances where sensible)  
 
-Thin `--line` dividers between chrono, capacity and LEDs. On `@media (max-width: 1100px)` allow wrap; chrono+capacity stay as one group before LEDs.
+Thin `--line` dividers between meter groups. On `@media (max-width: 1100px)` allow wrap; chrono+capacity stay grouped.
 
 ### 4.2 Chronometer behaviour
 
-- **Ring fill:** `--month-frac = monthIndex / 12` where January = 1 … December = 12 (August → `8/12`). Conic-gradient arc in `--cyan` / `--hud-primary`.
-- **Centre:** day-of-month (`en-GB` numeric), JetBrains Mono, minimal cyan glow.
-- **Readout:** `HH:MM:SS` (or 12h with am/pm) as hero; weekday + month name underneath in existing `.eyebrow` style (gold, uppercase, letter-spaced).
-- **Locale:** `en-GB` (`lang="en-GB"`).
-- **Click target:** the `.chrono-readout` / `<time>` cluster (min 44×44px hit area). Click → toggle 12/24. Double-click → toggle local/UTC. Persist keys e.g. `logis.chrono.hour12`, `logis.chrono.utc`.
-- **A11y:** semantic `<time datetime>`; **no** per-second `aria-live`. Update accessible name on minute change or on mode toggle only. Visible focus ring on `:focus-visible`.
-- **Motion:** optional dashed outer spin gated by `prefers-reduced-motion: reduce` (clock still ticks).
+- **Ring fill:** `--month-frac = monthIndex / 12` (January = 1 … December = 12; August → `8/12`).
+- **Centre:** day-of-month (`en-GB`), JetBrains Mono, minimal cyan glow.
+- **Readout:** `HH:MM:SS` (or 12h + am/pm); weekday + month in `.eyebrow` style.
+- **Click:** toggle 12/24. **Double-click:** toggle local/UTC. Persist `logis.chrono.hour12`, `logis.chrono.utc`.
+- **A11y:** `<time datetime>`; no per-second `aria-live`; update name on minute change or mode toggle; `:focus-visible` ring.
+- **Motion:** optional outer spin gated by `prefers-reduced-motion`.
 
 ### 4.3 Capacity / power ring
 
-Sibling widget reusing the same ring primitive.
-
-| Condition | Fill / colour |
-|-----------|----------------|
-| Gateway + Hermes healthy | Fill ≈ 1.0, success/cyan |
-| Degraded (e.g. voice down, gateway up) | Fill ≈ 0.6–0.8, warning |
-| Gateway / Hermes down | Fill ≈ 0.2–0.4, error/danger |
-| Unknown / loading | Decorative low fill, muted |
-
-Label under or beside ring: `POWER` / capacity percent text (never colour-alone — keep text + ring). Bind to existing `/api/status` (or equivalent LED sources) so the ring agrees with LED state. When status endpoints are unreachable in Cloud VMs, show honest degraded state (same as red LEDs today).
-
-### 4.4 Illustrative markup
-
-```html
-<div class="topbar-meters" role="group" aria-label="Time and system capacity">
-  <div class="chrono" role="group" aria-label="Local date and time">
-    <div class="chrono-ring" style="--month-frac: 0.666">
-      <span class="chrono-day" id="chrono-day">3</span>
-    </div>
-    <button type="button" class="chrono-readout" id="chrono-toggle"
-            aria-label="Toggle 12-hour or 24-hour clock. Double-click to toggle local or UTC.">
-      <time class="chrono-time" id="chrono-time" datetime="">--:--:--</time>
-      <div class="chrono-date eyebrow" id="chrono-date">— · —</div>
-    </button>
-  </div>
-  <div class="capacity" role="group" aria-label="System capacity">
-    <div class="capacity-ring" style="--cap-frac: 0.25">
-      <span class="capacity-pct" id="capacity-pct">25</span>
-    </div>
-    <div class="capacity-label eyebrow">POWER</div>
-  </div>
-</div>
-```
+Sibling ring primitive bound to `/api/status` (or LED sources). Colour + text (never colour-alone). Degraded Cloud VM state stays honest when gateway/voice are down.
 
 ---
 
-## 5. Radial app menu (LOGIS)
+## 5. Top-right system radial (revised)
 
-**Problem:** A free-floating radial launcher can fight the Command Matrix (ADR #104: prefixes are canonical).
+**Not** Command Matrix. Commands remain on the left.
 
-**Resolution:** The **reactor / brand control** opens a radial menu whose items are the existing Command Matrix prefixes (`/agent0`, `/wayfinder`, `/deepdive`, `/kanban`, `/handover`, `/background`, `/new`, …). Selecting an item focuses the channel composer and inserts/selects that prefix — same contracts as the matrix, different chrome.
+**Anchor:** top-right control (gear / reactor-mini / existing settings cluster), opening a radial (or compact pie) of **shell chrome** actions:
 
-- Position: anchored on the brand reactor (top-left).  
-- Interaction: click reactor to open/close; `Escape` closes; click-outside closes.  
-- A11y: `aria-expanded`, `role="menu"` / `menuitem`, arrow-key navigation, 44px targets.  
-- Motion: 150–300ms open; disabled under `prefers-reduced-motion` (instant show/hide).  
-- Do **not** remove the Command Matrix grid in v1 — radial is an alternate affordance.
+| Item | Intent |
+|------|--------|
+| **Settings** | Open existing settings panel/drawer |
+| **HUD switch** | Jump to / focus Hermes HUD Monitor (`:5173` / configured HUD URL), or toggle embedded Monitor↔Channel when amalgamation lands |
+| **Close** | Close or minimise the LOGIS window/tab (confirm if destructive) |
+| **Theme** (optional “etc.”) | Cycle or open theme/scanline controls if present |
+| **Always-on-top** (optional) | Only if the host shell supports it; otherwise omit |
 
----
-
-## 6. Brand sweep (everything)
-
-Replace product-facing and identifier uses of JARVIS/jarvis with LOGIS/logis across:
-
-- Visible UI strings and alt text  
-- `aria-label` / `title` / `meta`  
-- Markdown docs, ADRs, AGENTS.md, README, ROADMAP, changelog entries added in this work  
-- CSS comments, JSDoc, Python docstrings  
-- Theme id: Hermes theme is **`logis`** (never `jarvis`)  
-- i18n keys: `theme.logis` / label **LOGIS**  
-- Tests and fixtures that assert brand strings  
-- Screenshot/artifact captions in docs  
-
-Keep historical changelog lines that record past release notes only if rewriting would falsify history; new prose uses LOGIS. Code identifiers such as CSS classes that are purely structural need not change unless they contain `jarvis`.
+- Interaction: click to open/close; `Escape` / click-outside closes.  
+- A11y: `aria-expanded`, `role="menu"` / `menuitem`, arrow keys, ≥44px targets.  
+- Motion: 150–300ms; instant under `prefers-reduced-motion`.  
+- Do **not** duplicate left-side prefixes (`/agent0`, `/wayfinder`, …).
 
 ---
 
-## 7. Hermes theme-first (`logis`)
+## 6. Pomodoro widget
 
-Add a sixth theme in `frontend/src/index.css`, `useTheme.tsx`, and `i18n/translations.ts`:
+### 6.1 Placement & chrome
 
-| Token | Value (from LOGIS OLED cyan) |
-|-------|------------------------------|
+- **Top-centre-ish** in the topbar (between brand and `.topbar-right`), as another dial sibling to chrono/capacity.
+- Compact representation: radial remaining-time arc + centre readout (`MM:SS` or `H:MM:SS` for long focuses) + small phase label (`FOCUS` / `BREAK`).
+- **Primary click:** start / pause (or resume).  
+- **Right-click (context menu):** open **Configure Pomodoro** popup (also reachable via a ⋯ inside the popup for keyboard users: Shift+F10 / menu key when focused).
+
+### 6.2 Configure Pomodoro popup
+
+Editable factors (persisted in `localStorage`, e.g. `logis.pomo.*`):
+
+| Field | Default | Notes |
+|-------|---------|--------|
+| Focus duration | 25 min | Any positive duration (e.g. 30, 45, 90, **120** mins) — number + unit (min) |
+| Break duration | 5 min | Same flexibility |
+| Long break (optional v1.1) | 15 min | Every N focuses; can ship later |
+| Auto-start break | on | When focus hits 0 → start break countdown |
+| Auto-start next focus | off | Avoid surprise re-entry; user can enable |
+| Sound / voice cue | off in v1 | Hook later to Kokoro if desired |
+
+Validation: durations ≥ 1 minute; sensible max (e.g. 240 min) with a soft warning above 180.
+
+### 6.3 Lifecycle
+
+1. Idle → user starts focus.  
+2. Focus counts down; arc = **remaining / total** (remaining-centric is less anxiety-framed than “how expired”).  
+3. At 0: brief completion pulse → if auto-start break → **break** countdown with green stage colours.  
+4. Break at 0 → idle (or auto-start next focus if enabled).  
+5. Pause freezes remaining; config edits apply to the **next** segment unless user chooses “apply now & reset”.
+
+### 6.4 Colour stages (research-backed — avoid alarm red)
+
+**Design goal:** signal progress and phase without importing threat/anxiety semantics.
+
+**Evidence (summary):**
+
+- Cool hues (blue/green) associate with calm / positive affect; red/yellow more often with tension or negative affect in wait/loading contexts (e.g. Gorn, Chattopadhyay & Sengupta, *Journal of Marketing Research* — screen colour → relaxation → perceived wait; Design Society pupillometry loading-page study — blue/green positive, red/yellow more negative / higher arousal).
+- Red priming can harm performance in evaluative contexts (classic Elliot colour-in-context findings; popular summaries in Verywell Mind’s colour psychology overview).
+- Low-saturation blue–green workplace accents reduced stress/anxiety markers in an office RCT abstract (Schizophrenia Bulletin supplement, 2026; treat as supportive not gospel).
+- UC Davis Color Lab: **amber** ambient light showed the strongest stress-mitigation effect among white/amber/green/blue/red after a social-stress protocol — useful as a mid-session “still OK / you’re progressing” cue rather than a warning orange.
+- Saturations should stay **moderate**; lighter values ranked more positively in loading-page work.
+
+**Recommended LOGIS Pomodoro palette (tokens):**
+
+| Phase / remaining | Token | Hue intent | Meaning to the user |
+|-------------------|--------|------------|---------------------|
+| Focus, remaining ≥ 50% | `--pomo-focus-calm` | Bluish-cyan (LOGIS cyan family, slightly desaturated) | Settled focus |
+| Focus, remaining 25–50% | `--pomo-focus-progress` | Soft **amber/gold** (not neon orange) | Progressing; keep going |
+| Focus, remaining ≤ 25% | `--pomo-focus-near` | Soft **warm rose / peach** (low saturation) — **not** alarm red | Almost done / reward approaching |
+| Break (any) | `--pomo-break` | Soft **sage / mint green** | Recovery |
+| Paused | `--pomo-paused` | Muted slate + dashed arc | On hold |
+
+Arc interpolates between stage stops (CSS or canvas). Optional gentle brightness pulse only in the final 10% of focus, gated by `prefers-reduced-motion`.
+
+**Explicitly rejected:** traffic-light red at 90% elapsed as “urgency” — conflicts with the user’s brief and with threat-association findings.
+
+### 6.5 A11y
+
+- `role="timer"` / accessible name including phase + remaining.  
+- Announce phase changes (focus→break→idle) via polite `aria-live` **once**, not every second.  
+- Config popup: labelled fields, Esc closes, focus trap.
+
+---
+
+## 7. Brand sweep (everything)
+
+Unchanged in intent: replace JARVIS/jarvis with LOGIS/logis across UI, aria, docs, ADRs, comments, theme id **`logis`**, i18n, tests. Historical changelog lines may stay if rewriting would falsify history.
+
+---
+
+## 8. Plasma-like customisation (direction)
+
+Yes — the dashboard is drifting toward a **desktop panel**. KDE Plasma’s model is useful inspiration, not something to reimplement as Qt plasmoids in-browser.
+
+### 8.1 Plasma concepts to borrow
+
+| Plasma idea | LOGIS analogue |
+|-------------|----------------|
+| **Containment** (panel/desktop) | Topbar + optional side docks as containments |
+| **Applet / plasmoid** | Widget (chrono, capacity, Pomodoro, system radial, future clocks, notes, …) |
+| **Compact vs full representation** | Dial in bar vs right-click / click-out config popup |
+| **Per-applet config schema** | `logis.widgets.<id>.config` in `localStorage` (later optional server file under `~/.hermes/` or LOGIS config) |
+| **Add / remove / reorder** | Widget catalogue + enabled list + order index |
+
+### 8.2 Phased delivery (do not build all at once)
+
+| Phase | Deliverable |
+|-------|-------------|
+| **W0 (this build)** | Ship chrono, capacity, Pomodoro, system radial as **first-class widgets** with stable ids; shared dial primitive; configs in `localStorage`. |
+| **W1** | Widget registry + **show/hide** toggles in Settings; persist order. |
+| **W2** | Drag-reorder in the topbar; denser “panel edit mode” (Plasma-like edit affordance). |
+| **W3** | Declarative widget manifests (JSON schema) so new dials can be added without rewriting the shell; optional user CSS tokens. |
+| **Later** | True Plasmoid packaging is out of scope unless you explicitly want a native KDE companion; the web panel stays the product. |
+
+This keeps Kubuntu/`plasma.desktop` muscle memory (widgets you can add, configure, tuck away) without pretending the browser is plasmashell.
+
+---
+
+## 9. Hermes theme-first (`logis`)
+
+Add sixth theme in `frontend/src/index.css`, `useTheme.tsx`, `i18n/translations.ts`:
+
+| Token | Value (LOGIS OLED cyan) |
+|-------|-------------------------|
 | `--hud-bg-deep` | `#03060d` |
-| `--hud-bg-surface` / panel / hover | stepped lifts from deep |
 | `--hud-primary` | `#3de7ff` |
 | `--hud-primary-glow` | `rgba(61, 231, 255, 0.4)` |
-| `--hud-accent` | gold matching LOGIS eyebrow |
-| status colours | map to LOGIS `--success` / `--amber` / `--danger` |
+| `--hud-accent` | soft gold / amber (shared with Pomodoro progress stage) |
+| status | map to LOGIS success / amber / danger |
 
-Label in theme picker: **LOGIS**. This is the amalgamation proof: Hermes can wear the LOGIS skin before Channel is ported.
-
-Optional follow-up (same phase if cheap): document a shared token mapping table in `docs/` so LOGIS `:root` and Hermes `--hud-*` stay aligned.
+Picker label: **LOGIS**.
 
 ---
 
-## 8. Implementation phasing
+## 10. Implementation phasing
 
 | Phase | Repo | Deliverable |
 |-------|------|-------------|
-| **P0** | Hermes HUD | `logis` theme + i18n + theme picker entry; lint/build |
+| **P0** | Hermes HUD | `logis` theme + i18n + picker; lint/build |
 | **P1** | LOGIS | Full JARVIS→LOGIS brand sweep |
-| **P2** | LOGIS | Chronometer (month dial, 12/24 + local/UTC) at placement B |
-| **P3** | LOGIS | Capacity/power ring bound to status |
-| **P4** | LOGIS | Radial app menu on reactor → Command Matrix prefixes |
-| **P5** | Both | Screenshots, reduced-motion + narrow-width checks, PR notes |
+| **P2** | LOGIS | Shared dial primitive + chronometer (month/12) at placement B |
+| **P3** | LOGIS | Capacity/power ring |
+| **P4** | LOGIS | Pomodoro dial + configure popup + colour stages |
+| **P5** | LOGIS | Top-right system radial (settings / HUD / close / …) |
+| **P6** | LOGIS | W1 widget registry show/hide (if schedule allows; else follow-up PR) |
+| **P7** | Both | Screenshots, reduced-motion + narrow-width checks |
 
-P0 can proceed in this Hermes-only workspace. P1–P4 require `e-LOGIS-Dashboard` on the agent filesystem.
-
----
-
-## 9. Environment blocker (decision A)
-
-The prior setup run cloned `G6FX2032/e-LOGIS-Dashboard` into a multi-repo workspace. **This agent run cannot resolve that repository** (GitHub API/git clone → 404 / not found for the cloud token). There is also **no linked Cursor environment** on this run (`environment: null`), so multi-repo checkout is not active.
-
-Unblock options (human):
-
-1. Attach the existing multi-repo Cloud environment (Hermes + LOGIS + Kokoro + UI-UX-Pro-Max) to the next agent run, **or**  
-2. Grant this cloud token read access and confirm the canonical repo URL, **or**  
-3. Explicitly ask the agent to `trigger-environment-build` with a multi-repo `environment_json` once the LOGIS repo is readable.
-
-Until then, only **P0** (Hermes `logis` theme) is implementable here.
+P0 can proceed in the Hermes-only workspace. P1–P6 need `e-LOGIS-Dashboard` mounted.
 
 ---
 
-## 10. Testing / acceptance
+## 11. Environment blocker (decision A)
 
-- Chronometer: August shows ~8/12 arc; day centre correct; click flips 12↔24 and persists; double-click flips local↔UTC; no SR spam every second.  
-- Capacity: agrees with LED/status semantics; colour + text.  
-- Radial: opens from reactor; inserts a real matrix prefix; keyboard + Escape.  
-- Brand: ripgrep for `jarvis`/`JARVIS` in LOGIS tree is empty (except intentional historical changelog if any).  
-- Hermes: theme picker shows LOGIS; `data-theme="logis"` paints cyan OLED tokens; `npm run lint` clean; `npm run build` succeeds.  
-- `prefers-reduced-motion` and ~1100px / mobile widths checked via browser screenshots.
+This agent run still cannot resolve `G6FX2032/e-LOGIS-Dashboard` (404) and has **no linked Cursor environment**. Unblock by attaching the multi-repo environment, granting repo read access, or explicitly requesting a draft `trigger-environment-build` once the repo is readable.
 
 ---
 
-## 11. Open items closed by this spec
+## 12. Testing / acceptance
 
-- Ring meaning → **month / 12** (not day-of-month arc).  
-- Theme name → **`logis`**, not `jarvis`.  
-- Radial → **yes**, anchored on brand reactor, wired to Command Matrix.  
-- Capacity → **in first LOGIS UI PR** with chronometer.
+- Chronometer: August ~8/12 arc; 12/24 + local/UTC persist; no SR spam.  
+- Capacity: matches LED/status semantics.  
+- Pomodoro: custom durations (incl. 120); break auto-starts; colours follow calm→amber→soft rose→green; right-click opens configure; pause works.  
+- System radial: top-right; settings / HUD / close; **no** command prefixes.  
+- Brand: no product-facing `jarvis`/`JARVIS` left in LOGIS tree (except intentional history).  
+- Hermes: `data-theme="logis"`; lint/build clean.  
+- Motion and ~1100px widths checked.
 
 ---
 
-## 12. Spec self-review
+## 13. Spec self-review
 
-- No TBD placeholders for locked HITL items.  
-- Radial placement specified (reactor) to avoid a second nav system.  
-- Scope split so Hermes P0 is not blocked by LOGIS access.  
-- Double-click UTC is the explicit interpretation of “12/24, etc.” — change on review if you want click-cycle of four modes instead.
+- Radial relocated top-right; command coupling removed.  
+- Pomodoro + research-backed palette documented with citations (summary).  
+- Plasma path scoped as phased widget containments — not a native plasmashell port.  
+- Double-click UTC interpretation retained unless you prefer a four-mode click cycle.  
+- **HUD switch** exact target URL / behaviour should be confirmed on review (open Hermes in new tab vs same window vs future Monitor↔Channel toggle).
