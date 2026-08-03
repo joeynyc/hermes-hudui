@@ -67,7 +67,7 @@
 - `--hud-gradient-start: #1aa8c4`
 - `--hud-gradient-end: #3de7ff`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/test_frontend_themes.py`:
 
@@ -89,12 +89,12 @@ def test_logis_theme_is_registered_and_styled() -> None:
     assert "jarvis" not in translations.lower()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd /workspace && python -m pytest tests/test_frontend_themes.py::test_logis_theme_is_registered_and_styled -v`  
 Expected: FAIL (theme not registered)
 
-- [ ] **Step 3: Implement theme registration + CSS + i18n**
+- [x] **Step 3: Implement theme registration + CSS + i18n**
 
 In `useTheme.tsx`, extend:
 
@@ -115,7 +115,7 @@ zh: `'theme.logis': 'LOGIS',` (brand untranslated)
 
 In `CHANGELOG.md` under Unreleased → Added: LOGIS theme (cyan OLED palette aligned with the Channel dashboard).
 
-- [ ] **Step 4: Run tests and lint**
+- [x] **Step 4: Run tests and lint**
 
 Run:
 
@@ -126,7 +126,7 @@ cd /workspace/frontend && npm run lint
 
 Expected: pytest PASS; lint 0 errors
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/hooks/useTheme.tsx frontend/src/index.css frontend/src/i18n/translations.ts tests/test_frontend_themes.py CHANGELOG.md
