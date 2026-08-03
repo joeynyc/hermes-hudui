@@ -255,7 +255,7 @@ This agent run still cannot resolve `G6FX2032/e-LOGIS-Dashboard` (404) and has *
 - Chronometer: August ~8/12 arc; 12/24 + local/UTC persist; no SR spam.  
 - Capacity: matches LED/status semantics.  
 - Pomodoro: custom durations (incl. 120); break auto-starts; colours follow calm→amber→soft rose→green; right-click opens configure; pause works.  
-- System radial: top-right; settings / HUD / close; **no** command prefixes.  
+- System radial: top-right; settings / HUD placeholder / close; **no** command prefixes; HUD control is non-navigating until amalgamation.  
 - Brand: no product-facing `jarvis`/`JARVIS` left in LOGIS tree (except intentional history).  
 - Hermes: `data-theme="logis"`; lint/build clean.  
 - Motion and ~1100px widths checked.
