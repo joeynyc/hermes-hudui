@@ -145,7 +145,7 @@ git commit -m "feat(theme): add LOGIS cyan OLED theme to Hermes HUD"
 - Consumes: readable git remote for LOGIS
 - Produces: list of files containing `jarvis`/`JARVIS`; confirmed paths for topbar HTML/CSS/JS and status API
 
-- [ ] **Step 1: Verify repo access**
+- [x] **Step 1: Verify repo access**
 
 ```bash
 gh repo view G6FX2032/e-LOGIS-Dashboard
@@ -154,17 +154,17 @@ gh repo view G6FX2032/e-LOGIS-Dashboard
 
 Expected: repo resolves. If 404, stop and report blocker (Tasks 3–8 cannot proceed).
 
-- [ ] **Step 2: Inventory JARVIS strings**
+- [x] **Step 2: Inventory JARVIS strings**
 
 ```bash
 rg -n -i 'jarvis' --glob '!**/node_modules/**' --glob '!**/.git/**' /path/to/e-LOGIS-Dashboard | tee /tmp/logis-jarvis-inventory.txt
 ```
 
-- [ ] **Step 3: Record structural paths**
+- [x] **Step 3: Record structural paths**
 
 Locate and note absolute paths for: main HTML shell, CSS tokens (`:root` / `--cyan`), topbar markup (`.topbar`, `.brand`, `.leds`), main JS, FastAPI `/api/status` (or equivalent). Write them into the PR description for Tasks 3–8.
 
-- [ ] **Step 4: Commit** only if inventory notes are added under `docs/` in Hermes or LOGIS; otherwise no commit — proceed to Task 3 on the LOGIS branch `g6fx/logis-brand-chrono-ui-7b52`.
+- [x] **Step 4: Commit** only if inventory notes are added under `docs/` in Hermes or LOGIS; otherwise no commit — proceed to Task 3 on the LOGIS branch `g6fx/logis-brand-chrono-ui-7b52`.
 
 ---
 
@@ -177,7 +177,7 @@ Locate and note absolute paths for: main HTML shell, CSS tokens (`:root` / `--cy
 - Consumes: inventory paths
 - Produces: zero product-facing `jarvis`/`JARVIS` matches (allow historical changelog only if rewriting falsifies history)
 
-- [ ] **Step 1: Failing check**
+- [x] **Step 1: Failing check**
 
 ```bash
 rg -i 'jarvis' /path/to/e-LOGIS-Dashboard --glob '!**/.git/**' | rg -v 'CHANGELOG' ; echo exit:$?
@@ -185,11 +185,11 @@ rg -i 'jarvis' /path/to/e-LOGIS-Dashboard --glob '!**/.git/**' | rg -v 'CHANGELO
 
 Expected: matches exist (non-empty) before sweep.
 
-- [ ] **Step 2: Replace brand strings**
+- [x] **Step 2: Replace brand strings**
 
 Replace user-facing and identifier uses with LOGIS/logis per spec §7. Theme/class names containing `jarvis` → `logis`. Update aria-labels, titles, docs, ADRs, comments, tests.
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 ```bash
 rg -i 'jarvis' /path/to/e-LOGIS-Dashboard --glob '!**/.git/**' --glob '!**/CHANGELOG*'
@@ -197,7 +197,7 @@ rg -i 'jarvis' /path/to/e-LOGIS-Dashboard --glob '!**/.git/**' --glob '!**/CHANG
 
 Expected: no matches.
 
-- [ ] **Step 4: Commit on LOGIS branch**
+- [x] **Step 4: Commit on LOGIS branch**
 
 ```bash
 git commit -m "chore(brand): replace JARVIS product labelling with LOGIS"
@@ -217,11 +217,11 @@ git commit -m "chore(brand): replace JARVIS product labelling with LOGIS"
 - Consumes: `.topbar-right` / `.leds` structure from Task 2
 - Produces: `#chrono-day`, `#chrono-time`, `#chrono-date`, `#chrono-toggle`; `localStorage` keys `logis.chrono.hour12`, `logis.chrono.utc`; `--month-frac`
 
-- [ ] **Step 1: Add markup** in `.topbar-right` before `.leds` per spec §4.4 (chrono portion).
+- [x] **Step 1: Add markup** in `.topbar-right` before `.leds` per spec §4.4 (chrono portion).
 
-- [ ] **Step 2: Add CSS** for `.chrono`, `.chrono-ring` using `conic-gradient` and `--month-frac`, mono day centre, readout styles; respect `prefers-reduced-motion`.
+- [x] **Step 2: Add CSS** for `.chrono`, `.chrono-ring` using `conic-gradient` and `--month-frac`, mono day centre, readout styles; respect `prefers-reduced-motion`.
 
-- [ ] **Step 3: Add JS**
+- [x] **Step 3: Add JS**
 
 ```javascript
 const hour12 = () => localStorage.getItem('logis.chrono.hour12') === 'true';
@@ -237,9 +237,9 @@ chronoToggle.addEventListener('dblclick', (e) => { e.preventDefault(); /* toggle
 tick(); setInterval(tick, 1000);
 ```
 
-- [ ] **Step 4: Manual verify** at `http://localhost:8787` — August shows ~8/12 arc; click toggles 12/24; double-click toggles UTC.
+- [x] **Step 4: Manual verify** at `http://localhost:8787` — August shows ~8/12 arc; click toggles 12/24; double-click toggles UTC.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(topbar): add LOGIS chronometer with month dial and 12/24 toggle"
@@ -257,13 +257,13 @@ git commit -m "feat(topbar): add LOGIS chronometer with month dial and 12/24 tog
 - Consumes: dial primitive; status payload fields used by LEDs
 - Produces: `#capacity-pct`, `--cap-frac`, `.capacity-label` POWER text; colour + text always paired
 
-- [ ] **Step 1: Markup + CSS** for `.capacity` after `.chrono`.
+- [x] **Step 1: Markup + CSS** for `.capacity` after `.chrono`.
 
-- [ ] **Step 2: Bind status** — map healthy → ~1.0 success; degraded → ~0.6–0.8 warning; down → ~0.2–0.4 error; unknown → muted.
+- [x] **Step 2: Bind status** — map healthy → ~1.0 success; degraded → ~0.6–0.8 warning; down → ~0.2–0.4 error; unknown → muted.
 
-- [ ] **Step 3: Verify** against LED colours in UI.
+- [x] **Step 3: Verify** against LED colours in UI.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(topbar): add capacity power ring bound to status"
@@ -281,15 +281,15 @@ git commit -m "feat(topbar): add capacity power ring bound to status"
 - Consumes: dial primitive + Pomodoro colour tokens from spec §6.4
 - Produces: phase `idle|focus|break|paused`; right-click / Shift+F10 opens configure dialog
 
-- [ ] **Step 1: Add colour tokens** `--pomo-focus-calm`, `--pomo-focus-progress`, `--pomo-focus-near`, `--pomo-break`, `--pomo-paused`.
+- [x] **Step 1: Add colour tokens** `--pomo-focus-calm`, `--pomo-focus-progress`, `--pomo-focus-near`, `--pomo-break`, `--pomo-paused`.
 
-- [ ] **Step 2: Markup** centre Pomodoro dial + hidden `<dialog>` configure form (focus min, break min, auto-start break checkbox, auto-start focus checkbox).
+- [x] **Step 2: Markup** centre Pomodoro dial + hidden `<dialog>` configure form (focus min, break min, auto-start break checkbox, auto-start focus checkbox).
 
-- [ ] **Step 3: Logic** — start/pause on primary click; countdown remaining/total arc; at 0 auto-start break if enabled; stage colours by remaining fraction (≥0.5 calm, 0.25–0.5 amber, ≤0.25 soft rose); break uses green; `aria-live` polite only on phase change.
+- [x] **Step 3: Logic** — start/pause on primary click; countdown remaining/total arc; at 0 auto-start break if enabled; stage colours by remaining fraction (≥0.5 calm, 0.25–0.5 amber, ≤0.25 soft rose); break uses green; `aria-live` polite only on phase change.
 
-- [ ] **Step 4: Verify** 25→5 default path; custom 120 min accepted; right-click opens dialog.
+- [x] **Step 4: Verify** 25→5 default path; custom 120 min accepted; right-click opens dialog.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(topbar): add Pomodoro dial with configure popup and calm colour stages"
@@ -306,13 +306,13 @@ git commit -m "feat(topbar): add Pomodoro dial with configure popup and calm col
 - Consumes: existing settings entry point
 - Produces: radial/menu with Settings, HUD (disabled placeholder title “Monitor↔Channel — coming soon”), Close; **no** `/agent0` etc.
 
-- [ ] **Step 1: Markup** button `#system-radial-btn` + menu items.
+- [x] **Step 1: Markup** button `#system-radial-btn` + menu items.
 
-- [ ] **Step 2: Behaviour** — toggle menu; Esc/click-outside closes; Settings opens existing panel; HUD item `disabled` or `aria-disabled` with tooltip; Close calls `window.close()` or hides shell with confirm if needed.
+- [x] **Step 2: Behaviour** — toggle menu; Esc/click-outside closes; Settings opens existing panel; HUD item `disabled` or `aria-disabled` with tooltip; Close calls `window.close()` or hides shell with confirm if needed.
 
-- [ ] **Step 3: Verify** no command prefixes in menu DOM.
+- [x] **Step 3: Verify** no command prefixes in menu DOM.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git commit -m "feat(topbar): add system radial for settings, HUD placeholder, and close"
@@ -329,11 +329,11 @@ git commit -m "feat(topbar): add system radial for settings, HUD placeholder, an
 - Consumes: widget ids `chrono`, `capacity`, `pomodoro`, `systemRadial`
 - Produces: `localStorage` `logis.widgets.enabled` JSON array; settings checkboxes
 
-- [ ] **Step 1: Registry object** mapping id → root element.
+- [x] **Step 1: Registry object** mapping id → root element.
 
-- [ ] **Step 2: Settings UI** toggles; persist; apply on load.
+- [x] **Step 2: Settings UI** toggles; persist; apply on load.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git commit -m "feat(widgets): allow show/hide for topbar meter widgets"
