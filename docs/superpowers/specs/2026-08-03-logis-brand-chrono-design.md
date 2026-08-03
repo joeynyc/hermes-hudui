@@ -19,6 +19,7 @@
 | 5 | First build scope | Chronometer **+** capacity/power ring **+** Pomodoro dial **+** top-right system radial |
 | 6 | Amalgamation depth | **Theme first** — add Hermes `logis` theme / shared tokens before Channel shell work |
 | 7 | Radial app menu | **Top-right system radial** — settings / HUD switch / close (etc.). **Not** Command Matrix (commands stay left). See §5 |
+| 7a | HUD switch behaviour | **C** — placeholder only until Monitor↔Channel amalgamation; no external HUD navigation in v1 |
 | 8 | Brand sweep | **Everything** — UI copy, aria-labels, docs, ADRs, README, comments, theme ids, i18n keys, tests, screenshots alt text. Prefer `logis` over any `jarvis` identifier. |
 | 9 | Pomodoro | Top-centre-ish dial; right-click → configure popup; custom focus/break durations; auto-start break on expiry; research-backed colour stages. See §6 |
 | 10 | Customisation direction | Evolve toward a **Plasma-like widget panel** (show/hide, order, per-widget config). See §8 |
@@ -98,7 +99,7 @@ Sibling ring primitive bound to `/api/status` (or LED sources). Colour + text (n
 | Item | Intent |
 |------|--------|
 | **Settings** | Open existing settings panel/drawer |
-| **HUD switch** | Jump to / focus Hermes HUD Monitor (`:5173` / configured HUD URL), or toggle embedded Monitor↔Channel when amalgamation lands |
+| **HUD switch** | **Placeholder in v1** (decision **C**): visible control, disabled or “Coming soon / Monitor↔Channel” affordance until amalgamation lands; then becomes the Monitor↔Channel toggle. Do not open an external Hermes URL yet. |
 | **Close** | Close or minimise the LOGIS window/tab (confirm if destructive) |
 | **Theme** (optional “etc.”) | Cycle or open theme/scanline controls if present |
 | **Always-on-top** (optional) | Only if the host shell supports it; otherwise omit |
@@ -267,4 +268,4 @@ This agent run still cannot resolve `G6FX2032/e-LOGIS-Dashboard` (404) and has *
 - Pomodoro + research-backed palette documented with citations (summary).  
 - Plasma path scoped as phased widget containments — not a native plasmashell port.  
 - Double-click UTC interpretation retained unless you prefer a four-mode click cycle.  
-- **HUD switch** exact target URL / behaviour should be confirmed on review (open Hermes in new tab vs same window vs future Monitor↔Channel toggle).
+- **HUD switch** locked as **C** (placeholder until Monitor↔Channel amalgamation).
