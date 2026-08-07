@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
-import fcntl
-import os
 import re
-import tempfile
+import sys
+
+if sys.platform == "win32":
+    import msvcrt
+
+    def _flock_ex(handle):
+        msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+else:
+    import fcntl
+
+    def _flock_ex(handle):
+        fcntl.flock(handle, fcntl.LOCK_EX)
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +25,10 @@ from pydantic import BaseModel, Field
 from backend.cache import clear_cache
 from backend.collectors.profiles import collect_profiles
 from backend.collectors.utils import default_hermes_dir, load_yaml
+from backend.governance import (
+    GovernanceWriteError,
+    VerifiedFileActionAdapter,
+)
 from .serialize import to_dict
 
 router = APIRouter()
@@ -111,29 +124,11 @@ def _read_soul(profile_dir: Path) -> str:
         raise HTTPException(status_code=500, detail="failed to read SOUL.md") from None
 
 
-def _atomic_write(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    mode = path.stat().st_mode if path.exists() else None
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp", prefix=f".{path.name}_")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(text)
-            fh.flush()
-            os.fsync(fh.fileno())
-        if mode is not None:
-            os.chmod(tmp, mode)
-        os.replace(tmp, path)
-    except Exception:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-        raise
-
-
 def _with_profile_lock(profile_dir: Path, fn):
     lock_path = profile_dir / ".hud-profile-edit.lock"
     lock_path.touch(exist_ok=True)
     with open(lock_path, "r", encoding="utf-8") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        _flock_ex(lock)
         return fn()
 
 
@@ -279,11 +274,19 @@ def update_profile_edit(profile_name: str, body: ProfileEditBody):
         config["compression"] = compression
 
         yaml_text = yaml.safe_dump(config, sort_keys=False, allow_unicode=True)
-        _atomic_write(profile_dir / "config.yaml", yaml_text)
         soul = body.soul
         if soul and not soul.endswith("\n"):
             soul += "\n"
-        _atomic_write(profile_dir / "SOUL.md", soul)
+        adapter = VerifiedFileActionAdapter(
+            allowed_roots=[Path(default_hermes_dir())]
+        )
+        adapter.write_many(
+            {
+                profile_dir / "config.yaml": yaml_text.encode("utf-8"),
+                profile_dir / "SOUL.md": soul.encode("utf-8"),
+            },
+            action="profile.update",
+        )
         clear_cache()
         return _profile_edit_payload(profile_name, profile_dir)
 
@@ -291,5 +294,7 @@ def update_profile_edit(profile_name: str, body: ProfileEditBody):
         return _with_profile_lock(profile_dir, do_update)
     except HTTPException:
         raise
+    except GovernanceWriteError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"failed to update profile: {exc}") from exc

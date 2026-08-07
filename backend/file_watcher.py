@@ -52,7 +52,6 @@ def _force_polling() -> bool:
 
 def _detect_change_type(path: Path) -> list[str]:
     """Determine what data types changed based on file path."""
-    path_str = str(path)
     name = path.name
 
     # Check file patterns
@@ -61,7 +60,7 @@ def _detect_change_type(path: Path) -> list[str]:
 
     # Check directory patterns
     for dir_name, data_types in DIR_PATTERNS.items():
-        if f"/{dir_name}/" in path_str or path_str.endswith(f"/{dir_name}"):
+        if dir_name in path.parts:
             return data_types
 
     # Check for specific file types

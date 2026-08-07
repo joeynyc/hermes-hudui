@@ -24,30 +24,29 @@ def _safe_replay_path(path: str, label: str) -> Path:
     root = default_replay_dir().expanduser().resolve()
     expected_filename = _VERIFICATION_FILENAMES[label]
     supplied = path.strip()
-    if supplied.startswith("~/"):
-        supplied = f"{Path.home()}/{supplied[2:]}"
-    parts = supplied.split("/")
-    if (
-        len(parts) < 3
-        or parts[-3] != "runs"
-        or parts[-1] != expected_filename
-        or not _REPLAY_ID_RE.fullmatch(parts[-2])
-    ):
+    supplied_path = Path(supplied).expanduser()
+    if not supplied or ".." in supplied_path.parts:
         raise ValueError(
             "Verification files must be inside the configured Replay directory"
         )
-
-    replay_id = parts[-2]
-    candidate = (root / "runs" / replay_id / expected_filename).resolve(strict=False)
+    lexical = supplied_path if supplied_path.is_absolute() else root / supplied_path
+    if lexical.is_symlink():
+        raise ValueError(
+            "Verification files must be inside the configured Replay directory"
+        )
+    candidate = lexical.resolve(strict=False)
     try:
-        candidate.relative_to(root)
+        relative = candidate.relative_to(root)
     except ValueError as exc:
         raise ValueError(
             "Verification files must be inside the configured Replay directory"
         ) from exc
-
-    relative_path = f"runs/{replay_id}/{expected_filename}"
-    if supplied not in {str(candidate), relative_path}:
+    if (
+        len(relative.parts) != 3
+        or relative.parts[0] != "runs"
+        or not _REPLAY_ID_RE.fullmatch(relative.parts[1])
+        or relative.parts[2] != expected_filename
+    ):
         raise ValueError(
             "Verification files must be inside the configured Replay directory"
         )

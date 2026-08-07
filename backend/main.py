@@ -53,6 +53,7 @@ from .api import (
     sudo,
     providers,
     gateway,
+    governance,
     model_info,
     plugins,
     replay,
@@ -334,6 +335,7 @@ app.include_router(chat.router, prefix="/api")
 app.include_router(sudo.router, prefix="/api")
 app.include_router(providers.router, prefix="/api")
 app.include_router(gateway.router, prefix="/api")
+app.include_router(governance.router, prefix="/api")
 app.include_router(model_info.router, prefix="/api")
 app.include_router(plugins.router, prefix="/api")
 app.include_router(replay.router, prefix="/api")

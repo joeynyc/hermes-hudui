@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
-import fcntl
-import os
-import tempfile
+import sys
+
+if sys.platform == "win32":
+    import msvcrt
+
+    def _flock_ex(handle):
+        msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+else:
+    import fcntl
+
+    def _flock_ex(handle):
+        fcntl.flock(handle, fcntl.LOCK_EX)
 from pathlib import Path
 from typing import Literal
 
@@ -14,6 +23,10 @@ from pydantic import BaseModel
 from backend.collectors.memory import collect_memory
 from backend.collectors.config import collect_config
 from backend.collectors.utils import default_hermes_dir
+from backend.governance import (
+    GovernanceWriteError,
+    VerifiedFileActionAdapter,
+)
 from .serialize import to_dict
 
 router = APIRouter()
@@ -50,20 +63,11 @@ def _read_entries(target: MemoryTarget) -> list[str]:
 def _write_entries(target: MemoryTarget, entries: list[str]) -> None:
     """Atomically write entries back to a memory file."""
     path = _memory_path(target)
-    path.parent.mkdir(parents=True, exist_ok=True)
     content = ENTRY_DELIMITER.join(entries) + "\n" if entries else ""
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
-    try:
-        os.write(fd, content.encode("utf-8"))
-        os.close(fd)
-        fd = -1
-        os.replace(tmp, str(path))
-    except Exception:
-        if fd >= 0:
-            os.close(fd)
-        if os.path.exists(tmp):
-            os.remove(tmp)
-        raise
+    adapter = VerifiedFileActionAdapter(
+        allowed_roots=[Path(default_hermes_dir())]
+    )
+    adapter.write_one(path, content.encode("utf-8"), action="memory.write")
 
 
 def _with_lock(target: MemoryTarget, fn):
@@ -72,8 +76,11 @@ def _with_lock(target: MemoryTarget, fn):
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.touch(exist_ok=True)
     with open(lock, "r") as lf:
-        fcntl.flock(lf, fcntl.LOCK_EX)
-        return fn()
+        _flock_ex(lf)
+        try:
+            return fn()
+        except GovernanceWriteError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @router.get("/memory")
