@@ -13,8 +13,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.237",
-    "ai": "^6.0.235",
+    "@ai-sdk/react": "^4.0.44",
+    "ai": "^7.0.41",
     "highlight.js": "^11.11.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
