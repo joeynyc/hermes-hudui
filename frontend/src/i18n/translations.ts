@@ -16,6 +16,7 @@ export const translations = {
     'tab.chat': 'Chat',
     'tab.profiles': 'Profiles',
     'tab.token-costs': 'Costs',
+    'tab.cc-costs': 'CC Cost',
     'tab.corrections': 'Corrections',
     'tab.patterns': 'Patterns',
     'tab.providers': 'Providers',
@@ -497,6 +498,18 @@ export const translations = {
     'tokenCosts.session': 'Session',
     'tokenCosts.tokens': 'Tokens',
 
+    // CC Costs
+    'cc.title': 'CC Cost',
+    'cc.loading': 'Loading CC costs...',
+    'cc.today': 'CC Today',
+    'cc.total': 'CC Total',
+    'cc.byProject': 'By Project',
+    'cc.dailyTrend': 'CC Daily Cost Trend',
+    'cc.projects': 'projects',
+    'cc.estimatedToday': 'estimated today',
+    'cc.estimatedAllTime': 'estimated all-time',
+    'cc.topSessions': 'Top CC Sessions',
+
     // Corrections
     'corrections.title': 'Corrections',
     'corrections.loading': 'Loading corrections...',
@@ -581,6 +594,7 @@ export const translations = {
     'tab.chat': '聊天',
     'tab.profiles': '配置',
     'tab.token-costs': '成本',
+    'tab.cc-costs': 'CC成本',
     'tab.corrections': '纠正',
     'tab.patterns': '模式',
     'tab.sudo': 'Sudo',
@@ -1062,6 +1076,18 @@ export const translations = {
     'tokenCosts.topSessions': '最高成本会话',
     'tokenCosts.session': '会话',
     'tokenCosts.tokens': 'Tokens',
+
+    // CC Costs
+    'cc.title': 'CC成本',
+    'cc.loading': '加载CC成本...',
+    'cc.today': 'CC今日',
+    'cc.total': 'CC总计',
+    'cc.byProject': '按项目',
+    'cc.dailyTrend': 'CC每日成本趋势',
+    'cc.projects': '个项目',
+    'cc.estimatedToday': '今日预估',
+    'cc.estimatedAllTime': '总计预估',
+    'cc.topSessions': 'CC最高成本会话',
 
     // Corrections
     'corrections.title': '纠正',

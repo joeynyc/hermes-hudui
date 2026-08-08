@@ -15,6 +15,7 @@ export const TABS = [
   { id: 'chat', labelKey: 'tab.chat', key: '9' },
   { id: 'profiles', labelKey: 'tab.profiles', key: '0' },
   { id: 'token-costs', labelKey: 'tab.token-costs', key: null },
+  { id: 'cc-costs', labelKey: 'tab.cc-costs', key: null },
   { id: 'corrections', labelKey: 'tab.corrections', key: null },
   { id: 'patterns', labelKey: 'tab.patterns', key: null },
   { id: 'sudo', labelKey: 'tab.sudo', key: null },

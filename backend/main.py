@@ -48,6 +48,7 @@ from .api import (
     snapshots,
     dashboard,
     token_costs,
+    cc_costs,
     cache,
     chat,
     sudo,
@@ -329,6 +330,7 @@ app.include_router(timeline.router, prefix="/api")
 app.include_router(snapshots.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(token_costs.router, prefix="/api")
+app.include_router(cc_costs.router, prefix="/api")
 app.include_router(cache.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(sudo.router, prefix="/api")

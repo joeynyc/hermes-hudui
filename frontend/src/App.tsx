@@ -18,6 +18,7 @@ const AgentsPanel = lazy(() => import('./components/AgentsPanel'))
 const ChatPanel = lazy(() => import('./components/ChatPanel'))
 const ProfilesPanel = lazy(() => import('./components/ProfilesPanel'))
 const TokenCostsPanel = lazy(() => import('./components/TokenCostsPanel'))
+const CCCostsPanel = lazy(() => import('./components/CCCostsPanel'))
 const CorrectionsPanel = lazy(() => import('./components/CorrectionsPanel'))
 const PatternsPanel = lazy(() => import('./components/PatternsPanel'))
 const SudoPanel = lazy(() => import('./components/SudoPanel'))
@@ -48,6 +49,7 @@ function TabContent({ tab }: { tab: TabId }) {
     case 'chat': return <ChatPanel />
     case 'profiles': return <ProfilesPanel />
     case 'token-costs': return <TokenCostsPanel />
+    case 'cc-costs': return <CCCostsPanel />
     case 'corrections': return <CorrectionsPanel />
     case 'patterns': return <PatternsPanel />
     case 'sudo': return <SudoPanel />
@@ -73,6 +75,7 @@ const GRID_CLASS: Record<TabId, string> = {
   chat: 'grid-cols-1',  // Full width for chat
   profiles: 'grid-cols-1',
   'token-costs': 'grid-cols-1 lg:grid-cols-2',
+  'cc-costs': 'grid-cols-1 lg:grid-cols-2',
   corrections: 'grid-cols-1',
   patterns: 'grid-cols-1 lg:grid-cols-2',
   sudo: 'grid-cols-1 lg:grid-cols-2',
