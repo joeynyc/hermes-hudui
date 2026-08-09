@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 
 from backend.collectors.models import SessionInfo
@@ -136,3 +137,79 @@ def test_verify_replay_files_accepts_root_relative_paths(tmp_path, monkeypatch) 
     )
 
     assert result["ok"] is True
+
+
+def test_verify_replay_files_accepts_windows_separators(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HUD_REPLAY_DIR", str(tmp_path))
+    detail = _detail()
+    export_json(detail)
+
+    replay_id = detail.run.replay_id
+    separator = chr(92)
+    result = verify_replay_files(
+        f"runs{separator}{replay_id}{separator}receipt.json",
+        f"runs{separator}{replay_id}{separator}replay.redacted.json",
+    )
+
+    assert result["ok"] is True
+
+
+def test_verify_replay_files_rejects_traversal_and_unexpected_shapes(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HERMES_HUD_REPLAY_DIR", str(tmp_path))
+    replay_id = "replay_0123456789ab"
+    invalid_paths = [
+        f"runs/../runs/{replay_id}/receipt.json",
+        "runs/not-a-replay-id/receipt.json",
+        f"runs/{replay_id}/wrong.json",
+        f"extra/runs/{replay_id}/receipt.json",
+    ]
+
+    for path in invalid_paths:
+        result = verify_replay_files(path, path)
+        assert result["ok"] is False
+        assert all("configured Replay directory" in error for error in result["errors"])
+
+
+def test_verify_replay_files_rejects_symlink_at_allowlisted_filename(tmp_path, monkeypatch) -> None:
+    replay_root = tmp_path / "replays"
+    run_dir = replay_root / "runs" / "replay_0123456789ab"
+    run_dir.mkdir(parents=True)
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}", encoding="utf-8")
+    (run_dir / "receipt.json").symlink_to(outside)
+    monkeypatch.setenv("HERMES_HUD_REPLAY_DIR", str(replay_root))
+
+    result = verify_replay_files(
+        "runs/replay_0123456789ab/receipt.json",
+        "runs/replay_0123456789ab/receipt.json",
+    )
+
+    assert result["ok"] is False
+    assert all("configured Replay directory" in error for error in result["errors"])
+
+
+def test_verify_replay_files_rejects_parent_symlink_escape(tmp_path, monkeypatch) -> None:
+    replay_root = tmp_path / "replays"
+    runs_dir = replay_root / "runs"
+    outside_run = tmp_path / "outside" / "replay_0123456789ab"
+    runs_dir.mkdir(parents=True)
+    outside_run.mkdir(parents=True)
+    (outside_run / "receipt.json").write_text("{}", encoding="utf-8")
+    linked_run = runs_dir / "replay_0123456789ab"
+    try:
+        linked_run.symlink_to(outside_run, target_is_directory=True)
+    except OSError:
+        if os.name == "nt":
+            import pytest
+
+            pytest.skip("directory symlink creation is unavailable on this Windows host")
+        raise
+    monkeypatch.setenv("HERMES_HUD_REPLAY_DIR", str(replay_root))
+
+    result = verify_replay_files(
+        "runs/replay_0123456789ab/receipt.json",
+        "runs/replay_0123456789ab/receipt.json",
+    )
+
+    assert result["ok"] is False
+    assert all("configured Replay directory" in error for error in result["errors"])

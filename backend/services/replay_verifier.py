@@ -24,29 +24,45 @@ def _safe_replay_path(path: str, label: str) -> Path:
     root = default_replay_dir().expanduser().resolve()
     expected_filename = _VERIFICATION_FILENAMES[label]
     supplied = path.strip()
-    supplied_path = Path(supplied).expanduser()
-    if not supplied or ".." in supplied_path.parts:
+    if not supplied:
         raise ValueError(
             "Verification files must be inside the configured Replay directory"
         )
-    lexical = supplied_path if supplied_path.is_absolute() else root / supplied_path
+
+    # Treat the caller's path as an identifier only. The path handed to the
+    # filesystem is rebuilt from the trusted root, a validated replay id, and
+    # an allowlisted filename below.
+    normalized = supplied.replace("\\", "/")
+    if normalized.startswith("~/"):
+        normalized = f"{Path.home().as_posix()}/{normalized[2:]}"
+    parts = normalized.split("/")
+    if (
+        len(parts) < 3
+        or parts[-3] != "runs"
+        or not _REPLAY_ID_RE.fullmatch(parts[-2])
+        or parts[-1] != expected_filename
+    ):
+        raise ValueError(
+            "Verification files must be inside the configured Replay directory"
+        )
+
+    replay_id = parts[-2]
+    lexical = root / "runs" / replay_id / expected_filename
     if lexical.is_symlink():
         raise ValueError(
             "Verification files must be inside the configured Replay directory"
         )
     candidate = lexical.resolve(strict=False)
     try:
-        relative = candidate.relative_to(root)
+        candidate.relative_to(root)
     except ValueError as exc:
         raise ValueError(
             "Verification files must be inside the configured Replay directory"
         ) from exc
-    if (
-        len(relative.parts) != 3
-        or relative.parts[0] != "runs"
-        or not _REPLAY_ID_RE.fullmatch(relative.parts[1])
-        or relative.parts[2] != expected_filename
-    ):
+
+    relative_path = f"runs/{replay_id}/{expected_filename}"
+    canonical_path = candidate.as_posix()
+    if normalized not in {relative_path, canonical_path}:
         raise ValueError(
             "Verification files must be inside the configured Replay directory"
         )
