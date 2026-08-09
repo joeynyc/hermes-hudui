@@ -1,5 +1,6 @@
 import { useApi } from '../hooks/useApi'
 import Panel, { CapacityBar, Sparkline } from './Panel'
+import GovernancePlanPanel from './GovernancePlanPanel'
 import { useTranslation } from '../i18n'
 
 function money(value: number | null | undefined) {
@@ -465,6 +466,7 @@ export default function DashboardPanel() {
   return (
     <>
       <ExecutiveSummary summary={executive_summary} />
+      <GovernancePlanPanel />
 
       {/* Row 1: identity + what I know + what I remember */}
       <Panel title={t('dashboard.overview')}>

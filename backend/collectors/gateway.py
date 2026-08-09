@@ -292,7 +292,10 @@ def _write_state(path: Path, state: dict) -> None:
     )
     tmp = Path(tmp_name)
     try:
-        os.fchmod(descriptor, 0o600)
+        if hasattr(os, "fchmod"):
+            os.fchmod(descriptor, 0o600)
+        else:
+            os.chmod(tmp, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             descriptor = -1
             json.dump(state, handle)
@@ -308,6 +311,8 @@ def _write_state(path: Path, state: dict) -> None:
 
 def _read_state(path: Path) -> dict:
     try:
+        if path.is_symlink():
+            return {}
         flags = os.O_RDONLY
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
@@ -342,6 +347,8 @@ def run_action(name: str, hermes_dir: Optional[str] = None) -> dict:
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
+    elif log_file.is_symlink():
+        raise ValueError("Action log file must not be a symlink")
     descriptor = os.open(log_file, flags, 0o600)
     log_fh = os.fdopen(descriptor, "wb", buffering=0)
     try:
@@ -370,6 +377,8 @@ def run_action(name: str, hermes_dir: Optional[str] = None) -> dict:
 
 def _tail_lines(path: Path, max_lines: int = 200) -> list[str]:
     try:
+        if path.is_symlink():
+            return []
         flags = os.O_RDONLY
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW

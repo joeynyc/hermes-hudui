@@ -24,21 +24,35 @@ def _safe_replay_path(path: str, label: str) -> Path:
     root = default_replay_dir().expanduser().resolve()
     expected_filename = _VERIFICATION_FILENAMES[label]
     supplied = path.strip()
-    if supplied.startswith("~/"):
-        supplied = f"{Path.home()}/{supplied[2:]}"
-    parts = supplied.split("/")
+    if not supplied:
+        raise ValueError(
+            "Verification files must be inside the configured Replay directory"
+        )
+
+    # Treat the caller's path as an identifier only. The path handed to the
+    # filesystem is rebuilt from the trusted root, a validated replay id, and
+    # an allowlisted filename below.
+    normalized = supplied.replace("\\", "/")
+    if normalized.startswith("~/"):
+        normalized = f"{Path.home().as_posix()}/{normalized[2:]}"
+    parts = normalized.split("/")
     if (
         len(parts) < 3
         or parts[-3] != "runs"
-        or parts[-1] != expected_filename
         or not _REPLAY_ID_RE.fullmatch(parts[-2])
+        or parts[-1] != expected_filename
     ):
         raise ValueError(
             "Verification files must be inside the configured Replay directory"
         )
 
     replay_id = parts[-2]
-    candidate = (root / "runs" / replay_id / expected_filename).resolve(strict=False)
+    lexical = root / "runs" / replay_id / expected_filename
+    if lexical.is_symlink():
+        raise ValueError(
+            "Verification files must be inside the configured Replay directory"
+        )
+    candidate = lexical.resolve(strict=False)
     try:
         candidate.relative_to(root)
     except ValueError as exc:
@@ -47,7 +61,8 @@ def _safe_replay_path(path: str, label: str) -> Path:
         ) from exc
 
     relative_path = f"runs/{replay_id}/{expected_filename}"
-    if supplied not in {str(candidate), relative_path}:
+    canonical_path = candidate.as_posix()
+    if normalized not in {relative_path, canonical_path}:
         raise ValueError(
             "Verification files must be inside the configured Replay directory"
         )

@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from subprocess import CompletedProcess
 
@@ -193,6 +194,16 @@ def test_normalize_session_adds_git_diff_summary_when_project_path_is_known(tmp_
 
     monkeypatch.setattr("backend.services.replay_normalizer.subprocess.run", fake_run)
 
+    tool_calls = json.dumps(
+        [
+            {
+                "function": {
+                    "name": "exec_command",
+                    "arguments": json.dumps({"cmd": "git diff", "cwd": str(repo)}),
+                }
+            }
+        ]
+    )
     detail = normalize_session(
         _session(),
         [
@@ -201,7 +212,7 @@ def test_normalize_session_adds_git_diff_summary_when_project_path_is_known(tmp_
                 "role": "assistant",
                 "content": "Inspecting project path.",
                 "timestamp": 101,
-                "tool_calls": '[{"function": {"name": "exec_command", "arguments": "{\\"cmd\\": \\"git diff\\", \\"cwd\\": \\"%s\\"}"}}]' % repo,
+                "tool_calls": tool_calls,
             }
         ],
     )

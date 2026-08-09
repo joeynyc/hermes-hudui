@@ -46,7 +46,8 @@ def test_create_builds_minimal_command(captured_calls) -> None:
     assert kwargs.get("capture_output") is True
 
 
-def test_create_builds_full_command_in_order(captured_calls) -> None:
+def test_create_builds_full_command_in_order(captured_calls, tmp_path) -> None:
+    workdir = str(tmp_path / "proj")
     create_job(
         CreateCronBody(
             schedule="0 9 * * *",
@@ -56,7 +57,7 @@ def test_create_builds_full_command_in_order(captured_calls) -> None:
             repeat=3,
             skills=["seo", "  ", "social"],  # blank entry is dropped
             script="/opt/run.sh",
-            workdir="/home/user/proj",
+            workdir=workdir,
         )
     )
 
@@ -71,7 +72,7 @@ def test_create_builds_full_command_in_order(captured_calls) -> None:
         "--skill=seo",
         "--skill=social",
         "--script=/opt/run.sh",
-        "--workdir=/home/user/proj",
+        f"--workdir={workdir}",
         "--",
         "0 9 * * *",
         "do the thing",
