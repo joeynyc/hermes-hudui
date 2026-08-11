@@ -4,6 +4,9 @@ All notable changes to hermes-hudui are documented here.
 
 ## [Unreleased]
 
+### Added
+- **LOGIS theme** — sixth Hermes HUD skin using the Channel dashboard cyan OLED palette (`#03060d` / `#3de7ff`), labelled **LOGIS** (not JARVIS) for trademark-aligned Monitor↔Channel design DNA.
+
 ---
 
 ## [0.11.0] — 2026-07-26

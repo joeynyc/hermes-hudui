@@ -2,7 +2,7 @@
 
 /* ═══════════════════════════════════════════════════════════
    HERMES HUD — Theme System
-   5 themes as CSS custom properties. One-line switch.
+   6 themes as CSS custom properties. One-line switch.
    ═══════════════════════════════════════════════════════════ */
 
 :root {
@@ -124,6 +124,28 @@
   --hud-error: #ff5555;
   --hud-gradient-start: #875fff;
   --hud-gradient-end: #ff5fff;
+}
+
+/* ── LOGIS (cyan OLED Channel skin) ─────────────────────── */
+[data-theme="logis"] {
+  --hud-bg-deep: #03060d;
+  --hud-bg-surface: #071018;
+  --hud-bg-panel: #0c1824;
+  --hud-bg-hover: #122030;
+  --hud-primary: #3de7ff;
+  --hud-primary-dim: #1aa8c4;
+  --hud-primary-glow: rgba(61, 231, 255, 0.4);
+  --hud-secondary: #7af0ff;
+  --hud-accent: #e6b84d;
+  --hud-text: #d7eef5;
+  --hud-text-dim: #6a8a9a;
+  --hud-border: rgba(61, 231, 255, 0.25);
+  --hud-border-bright: rgba(61, 231, 255, 0.5);
+  --hud-success: #6bcf8e;
+  --hud-warning: #e6b84d;
+  --hud-error: #e86a6a;
+  --hud-gradient-start: #1aa8c4;
+  --hud-gradient-end: #3de7ff;
 }
 
 /* ═══════════════════════════════════════════════════════════

@@ -90,7 +90,7 @@ FastAPI Backend (Python)
 
 **Memory editing:** Sync `def` endpoints (not `async`) so FastAPI auto-threads blocking I/O. File locking via `fcntl.flock` on `.lock` files. Atomic writes via `tempfile.mkstemp` + `os.replace`. Entries delimited by `\n§\n`.
 
-**Styling:** Tailwind for layout, CSS variables (`var(--hud-*)`) for theming. Funnel Sans font. Five themes: `ai`, `hermes`, `blade-runner`, `fsociety`, `anime`.
+**Styling:** Tailwind for layout, CSS variables (`var(--hud-*)`) for theming. Funnel Sans font. Six themes: `ai`, `hermes-official`, `logis`, `blade-runner`, `fsociety`, `anime`.
 
 **TypeScript:** Use `any` for API response types — schema owned by backend.
 

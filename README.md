@@ -78,7 +78,7 @@ English (default) and Chinese. Click the language toggle at the far right of the
 
 ## Themes
 
-Five themes switchable with `t`: **Neural Awakening** (cyan), **Hermes Teal** (official Nous dashboard palette), **Blade Runner** (amber), **fsociety** (green), **Anime** (purple). Optional CRT scanlines.
+Six themes switchable with `t`: **Neural Awakening** (cyan), **Hermes Teal** (official Nous dashboard palette), **LOGIS** (Channel cyan OLED), **Blade Runner** (amber), **fsociety** (green), **Anime** (purple). Optional CRT scanlines.
 
 The top tab bar is responsive: resize the browser and tabs stay reachable through horizontal scrolling, with the active tab kept in view.
 
