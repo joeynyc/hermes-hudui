@@ -146,6 +146,15 @@ class SessionInfo:
     reasoning_tokens: int = 0
     estimated_cost_usd: float = 0.0
     model: Optional[str] = None
+    profile_name: Optional[str] = None
+    hidden: bool = False
+    pinned: bool = False
+    last_activity_at: Optional[datetime] = None
+    last_activity_description: Optional[str] = None
+    handoff_state: Optional[str] = None
+    handoff_platform: Optional[str] = None
+    billing_provider: Optional[str] = None
+    git_branch: Optional[str] = None
 
     @property
     def total_tokens(self) -> int:

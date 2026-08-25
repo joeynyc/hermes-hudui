@@ -78,6 +78,46 @@ def test_create_builds_full_command_in_order(captured_calls) -> None:
     ]
 
 
+def test_create_builds_agent_020_flags(captured_calls) -> None:
+    create_job(
+        CreateCronBody(
+            schedule="30m",
+            prompt="watch it",
+            model="grok-4.6",
+            provider="xai",
+            continuity=True,
+            monitor_url="https://example.com/status",
+        )
+    )
+    cmd, _ = captured_calls[0]
+    assert cmd == [
+        "/usr/bin/hermes",
+        "cron",
+        "create",
+        "--model=grok-4.6",
+        "--provider=xai",
+        "--continuity",
+        "--monitor-url=https://example.com/status",
+        "--",
+        "30m",
+        "watch it",
+    ]
+
+
+def test_create_rejects_monitor_with_no_agent(captured_calls) -> None:
+    with pytest.raises(HTTPException) as exc:
+        create_job(CreateCronBody(schedule="@daily", no_agent=True, monitor_script="watch.py"))
+    assert exc.value.status_code == 400
+    assert captured_calls == []
+
+
+def test_create_rejects_non_http_monitor_url(captured_calls) -> None:
+    with pytest.raises(HTTPException) as exc:
+        create_job(CreateCronBody(schedule="@daily", monitor_url="ftp://example.com"))
+    assert exc.value.status_code == 400
+    assert captured_calls == []
+
+
 def test_create_rejects_empty_schedule(captured_calls) -> None:
     with pytest.raises(HTTPException) as exc:
         create_job(CreateCronBody(schedule="   "))

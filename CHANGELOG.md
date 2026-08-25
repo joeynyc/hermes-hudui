@@ -4,6 +4,12 @@ All notable changes to hermes-hudui are documented here.
 
 ## [Unreleased]
 
+### Changed
+- **Agent compatibility pin** — Health now verifies against Hermes Agent **v0.20.3** and `state.db` schema **v26**, while still accepting the older v16/v23 baselines.
+- **Cron 0.20 fields** — Cron list/create now surface continuity, monitor mode, no-agent jobs, per-job model/provider, notepad keys, and recent execution attempts from `cron/notepad.db` + `cron/executions.db`.
+- **Sessions row fields** — Sessions list includes profile, pin/hide, last activity, handoff, billing provider, and git branch when present.
+- **Projects source of truth** — Projects reads Agent `projects.db` first (named multi-folder workspaces) and falls back to the `~/projects/` folder scan only when the Agent store is empty.
+
 ---
 
 ## [0.11.0] — 2026-07-26

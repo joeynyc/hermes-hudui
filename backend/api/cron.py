@@ -49,6 +49,12 @@ class CreateCronBody(BaseModel):
     skills: list[str] = Field(default_factory=list, max_length=64)
     script: str | None = Field(default=None, max_length=1024)
     workdir: str | None = Field(default=None, max_length=4096)
+    model: str | None = Field(default=None, max_length=200)
+    provider: str | None = Field(default=None, max_length=200)
+    continuity: bool = False
+    no_agent: bool = False
+    monitor_script: str | None = Field(default=None, max_length=1024)
+    monitor_url: str | None = Field(default=None, max_length=2048)
 
 
 def _clean_optional(value: str | None) -> str | None:
@@ -76,6 +82,10 @@ def _run_create(body: CreateCronBody) -> None:
     deliver = _clean_optional(body.deliver)
     script = _clean_optional(body.script)
     workdir = _clean_optional(body.workdir)
+    model = _clean_optional(body.model)
+    provider = _clean_optional(body.provider)
+    monitor_script = _clean_optional(body.monitor_script)
+    monitor_url = _clean_optional(body.monitor_url)
     skills = [skill.strip() for skill in body.skills if skill.strip()]
 
     for label, value in (
@@ -85,6 +95,10 @@ def _run_create(body: CreateCronBody) -> None:
         ("deliver", deliver),
         ("script", script),
         ("workdir", workdir),
+        ("model", model),
+        ("provider", provider),
+        ("monitor_script", monitor_script),
+        ("monitor_url", monitor_url),
     ):
         _reject_nul(label, value)
     for skill in skills:
@@ -97,6 +111,13 @@ def _run_create(body: CreateCronBody) -> None:
 
     if workdir and not Path(workdir).is_absolute():
         raise HTTPException(status_code=400, detail="workdir must be an absolute path")
+
+    if monitor_script and monitor_url:
+        raise HTTPException(status_code=400, detail="use only one of monitor_script or monitor_url")
+    if body.no_agent and (monitor_script or monitor_url):
+        raise HTTPException(status_code=400, detail="monitor mode is incompatible with no_agent")
+    if monitor_url and not monitor_url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="monitor_url must be an http(s) URL")
 
     cmd = [_hermes(), "cron", "create"]
     if name:
@@ -111,6 +132,18 @@ def _run_create(body: CreateCronBody) -> None:
         cmd.append(f"--script={script}")
     if workdir:
         cmd.append(f"--workdir={workdir}")
+    if model:
+        cmd.append(f"--model={model}")
+    if provider:
+        cmd.append(f"--provider={provider}")
+    if body.continuity:
+        cmd.append("--continuity")
+    if body.no_agent:
+        cmd.append("--no-agent")
+    if monitor_script:
+        cmd.append(f"--monitor-script={monitor_script}")
+    if monitor_url:
+        cmd.append(f"--monitor-url={monitor_url}")
     # Explicitly terminate option parsing before user-controlled positionals.
     cmd.extend(["--", schedule])
     if prompt:

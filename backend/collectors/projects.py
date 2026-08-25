@@ -1,10 +1,10 @@
-"""Collect project data from ~/projects/."""
+"""Collect Hermes projects from projects.db, with a ~/projects/ fallback."""
 
 from __future__ import annotations
 
-import os
+import sqlite3
 
-from .utils import default_projects_dir
+from .utils import default_hermes_dir, default_projects_dir
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -29,6 +29,12 @@ class ProjectInfo:
     has_requirements: bool = False
     has_pyproject: bool = False
     languages: list[str] = field(default_factory=list)
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    board_slug: Optional[str] = None
+    folder_count: int = 0
+    source: str = "folder"
+    archived: bool = False
 
     @property
     def status_label(self) -> str:
@@ -149,10 +155,103 @@ def _detect_languages(path: Path) -> list[str]:
     return sorted(langs)[:5]  # Cap at 5
 
 
-def collect_projects(projects_dir: str | None = None) -> ProjectsState:
-    """Collect project data from the projects directory."""
+def _enrich_git(proj: ProjectInfo, item: Path) -> None:
+    """Fill git + language badges for a folder that exists on disk."""
+    proj.has_readme = (item / "README.md").exists() or (item / "readme.md").exists()
+    proj.has_package_json = (item / "package.json").exists()
+    proj.has_requirements = (item / "requirements.txt").exists()
+    proj.has_pyproject = (item / "pyproject.toml").exists()
+    proj.languages = _detect_languages(item)
+    try:
+        proj.last_modified = datetime.fromtimestamp(item.stat().st_mtime)
+    except OSError:
+        pass
+    proj.is_git = (item / ".git").is_dir() or (item / ".git").is_file()
+    if not proj.is_git:
+        return
+    proj.branch = _run_git(str(item), ["branch", "--show-current"]) or "HEAD"
+    log_output = _run_git(str(item), ["log", "-1", "--format=%ar|%s|%ct"])
+    if log_output and "|" in log_output:
+        parts = log_output.split("|", 2)
+        proj.last_commit_ago = parts[0]
+        proj.last_commit_msg = parts[1] if len(parts) > 1 else None
+        try:
+            proj.last_commit_ts = float(parts[2]) if len(parts) > 2 else None
+        except ValueError:
+            pass
+    status = _run_git(str(item), ["status", "--porcelain"])
+    proj.dirty_files = len([line for line in status.split("\n") if line.strip()]) if status else 0
+    count = _run_git(str(item), ["rev-list", "--count", "HEAD"])
+    try:
+        proj.total_commits = int(count)
+    except ValueError:
+        pass
+
+
+def _collect_agent_projects(hermes_dir: str) -> list[ProjectInfo]:
+    db_path = Path(hermes_dir) / "projects.db"
+    if not db_path.exists():
+        return []
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        rows = list(conn.execute(
+            """SELECT id, slug, name, description, board_slug, primary_path,
+                      created_at, archived
+               FROM projects
+               WHERE COALESCE(archived, 0) = 0
+               ORDER BY name"""
+        ))
+        folders: dict[str, list[str]] = {}
+        try:
+            for folder in conn.execute(
+                "SELECT project_id, path, is_primary FROM project_folders"
+            ):
+                folders.setdefault(str(folder["project_id"]), []).append(
+                    str(folder["path"])
+                )
+        except sqlite3.Error:
+            pass
+        conn.close()
+    except sqlite3.Error:
+        return []
+
+    projects: list[ProjectInfo] = []
+    for row in rows:
+        paths = folders.get(str(row["id"]), [])
+        primary = row["primary_path"] or (paths[0] if paths else "")
+        proj = ProjectInfo(
+            name=row["name"] or row["slug"] or "unnamed",
+            path=str(primary or ""),
+            slug=row["slug"],
+            description=row["description"],
+            board_slug=row["board_slug"],
+            folder_count=len(paths) or (1 if primary else 0),
+            source="agent",
+            archived=bool(row["archived"]),
+        )
+        if primary and Path(primary).exists():
+            _enrich_git(proj, Path(primary))
+        elif row["created_at"]:
+            try:
+                proj.last_modified = datetime.fromtimestamp(float(row["created_at"]))
+            except (TypeError, ValueError, OSError):
+                pass
+        projects.append(proj)
+    return projects
+
+
+def collect_projects(
+    projects_dir: str | None = None,
+    hermes_dir: str | None = None,
+) -> ProjectsState:
+    """Collect Agent projects.db first, then fall back to ~/projects/."""
     if projects_dir is None:
         projects_dir = default_projects_dir(projects_dir)
+
+    agent_projects = _collect_agent_projects(default_hermes_dir(hermes_dir))
+    if agent_projects:
+        return ProjectsState(projects=agent_projects, projects_dir=projects_dir)
 
     projects_path = Path(projects_dir)
     if not projects_path.exists():
@@ -166,50 +265,8 @@ def collect_projects(projects_dir: str | None = None) -> ProjectsState:
         if item.name.startswith("."):
             continue
 
-        is_git = (item / ".git").is_dir()
-        proj = ProjectInfo(
-            name=item.name,
-            path=str(item),
-            is_git=is_git,
-            has_readme=(item / "README.md").exists() or (item / "readme.md").exists(),
-            has_package_json=(item / "package.json").exists(),
-            has_requirements=(item / "requirements.txt").exists(),
-            has_pyproject=(item / "pyproject.toml").exists(),
-            languages=_detect_languages(item),
-        )
-
-        # Get directory mtime
-        try:
-            proj.last_modified = datetime.fromtimestamp(item.stat().st_mtime)
-        except OSError:
-            pass
-
-        if is_git:
-            # Branch
-            proj.branch = _run_git(str(item), ["branch", "--show-current"]) or "HEAD"
-
-            # Last commit
-            log_output = _run_git(str(item), ["log", "-1", "--format=%ar|%s|%ct"])
-            if log_output and "|" in log_output:
-                parts = log_output.split("|", 2)
-                proj.last_commit_ago = parts[0]
-                proj.last_commit_msg = parts[1] if len(parts) > 1 else None
-                try:
-                    proj.last_commit_ts = float(parts[2]) if len(parts) > 2 else None
-                except ValueError:
-                    pass
-
-            # Dirty files
-            status = _run_git(str(item), ["status", "--porcelain"])
-            proj.dirty_files = len([l for l in status.split("\n") if l.strip()]) if status else 0
-
-            # Total commits
-            count = _run_git(str(item), ["rev-list", "--count", "HEAD"])
-            try:
-                proj.total_commits = int(count)
-            except ValueError:
-                pass
-
+        proj = ProjectInfo(name=item.name, path=str(item), source="folder")
+        _enrich_git(proj, item)
         projects.append(proj)
 
     return ProjectsState(projects=projects, projects_dir=projects_dir)

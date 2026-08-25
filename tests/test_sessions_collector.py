@@ -25,7 +25,16 @@ def _make_state_db(path: Path) -> None:
             model_config TEXT,
             model TEXT,
             parent_session_id TEXT,
-            end_reason TEXT
+            end_reason TEXT,
+            profile_name TEXT,
+            hidden INTEGER DEFAULT 0,
+            pinned INTEGER DEFAULT 0,
+            last_activity_at REAL,
+            last_activity_description TEXT,
+            handoff_state TEXT,
+            handoff_platform TEXT,
+            billing_provider TEXT,
+            git_branch TEXT
         );
         CREATE TABLE messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,6 +70,15 @@ def _insert_session(path: Path, **values) -> None:
         "model": None,
         "parent_session_id": None,
         "end_reason": None,
+        "profile_name": None,
+        "hidden": 0,
+        "pinned": 0,
+        "last_activity_at": None,
+        "last_activity_description": None,
+        "handoff_state": None,
+        "handoff_platform": None,
+        "billing_provider": None,
+        "git_branch": None,
     }
     defaults.update(values)
     columns = ", ".join(defaults)
@@ -113,3 +131,34 @@ def test_collect_sessions_filters_internal_tool_source_case_insensitively(tmp_pa
 
     assert [session.id for session in state.sessions] == ["human"]
     assert state.daily_stats[0].sessions == 1
+
+
+def test_collect_sessions_surfaces_current_row_fields(tmp_path: Path) -> None:
+    db_path = tmp_path / "state.db"
+    _make_state_db(db_path)
+    _insert_session(
+        db_path,
+        id="live",
+        title="Live",
+        profile_name="work",
+        hidden=1,
+        pinned=1,
+        last_activity_at=1_700_000_100,
+        last_activity_description="edited file",
+        handoff_state="pending",
+        handoff_platform="telegram",
+        billing_provider="xai",
+        git_branch="main",
+        model="grok-4.6",
+    )
+
+    session = _do_collect_sessions(str(db_path)).sessions[0]
+    assert session.profile_name == "work"
+    assert session.hidden is True
+    assert session.pinned is True
+    assert session.last_activity_description == "edited file"
+    assert session.handoff_state == "pending"
+    assert session.handoff_platform == "telegram"
+    assert session.billing_provider == "xai"
+    assert session.git_branch == "main"
+    assert session.model == "grok-4.6"
