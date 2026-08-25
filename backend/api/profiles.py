@@ -218,12 +218,12 @@ def _profile_edit_payload(profile_name: str, profile_dir: Path) -> dict[str, Any
 
 
 @router.get("/profiles")
-async def get_profiles():
+def get_profiles():
     return to_dict(collect_profiles())
 
 
 @router.get("/profiles/options")
-async def profile_options():
+def profile_options():
     return {
         "providers": PROVIDER_OPTIONS,
         "toolsets": TOOLSET_OPTIONS,

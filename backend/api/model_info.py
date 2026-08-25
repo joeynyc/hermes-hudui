@@ -10,11 +10,11 @@ router = APIRouter()
 
 
 @router.get("/model-info")
-async def get_model_info():
+def get_model_info():
     return to_dict(collect_model_info())
 
 
 @router.get("/model-analytics")
-async def get_model_analytics(days: int = 30):
+def get_model_analytics(days: int = 30):
     period = None if days <= 0 else days
     return to_dict(collect_model_analytics(days=period))

@@ -9,5 +9,5 @@ router = APIRouter()
 
 
 @router.get("/providers")
-async def get_providers():
+def get_providers():
     return to_dict(collect_providers())

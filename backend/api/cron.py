@@ -128,7 +128,7 @@ def _run_create(body: CreateCronBody) -> None:
 
 
 @router.get("/cron")
-async def get_cron():
+def get_cron():
     return to_dict(collect_cron())
 
 

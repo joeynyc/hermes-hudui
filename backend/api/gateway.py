@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/gateway")
-async def get_gateway():
+def get_gateway():
     return to_dict(collect_gateway_status())
 
 
 @router.post("/gateway/restart")
-async def restart_gateway():
+def restart_gateway():
     try:
         return run_action("gateway-restart")
     except RuntimeError as e:
@@ -34,7 +34,7 @@ async def restart_gateway():
 
 
 @router.post("/hermes/update")
-async def update_hermes():
+def update_hermes():
     try:
         return run_action("hermes-update")
     except RuntimeError as e:
@@ -45,7 +45,7 @@ async def update_hermes():
 
 
 @router.get("/actions/{name}/status")
-async def action_status(name: str):
+def action_status(name: str):
     if name not in ACTION_NAMES:
         raise HTTPException(status_code=404, detail=f"Unknown action: {name}")
     return read_action_status(name)

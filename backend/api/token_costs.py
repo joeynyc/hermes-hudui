@@ -274,7 +274,7 @@ def _empty_cost_report() -> dict:
 
 
 @router.get("/token-costs")
-async def get_token_costs():
+def get_token_costs():
     """Token usage and estimated costs, broken down by model."""
     hermes_dir = default_hermes_dir()
     db_path = str(Path(hermes_dir) / "state.db")

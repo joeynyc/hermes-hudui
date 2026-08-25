@@ -120,6 +120,18 @@ def _clear_prefix(prefix: str) -> int:
     return len(to_remove)
 
 
+def clear_cache_prefixes(prefixes: set[str] | list[str] | tuple[str, ...]) -> int:
+    """Clear cache entries for collector key prefixes."""
+    normalized = {prefix.strip() for prefix in prefixes if prefix.strip()}
+    to_remove = [
+        key for key in _cache_store
+        if key.split(":", 1)[0] in normalized
+    ]
+    for key in to_remove:
+        del _cache_store[key]
+    return len(to_remove)
+
+
 def clear_cache() -> int:
     """Clear entire cache. Returns count cleared."""
     global _cache_store

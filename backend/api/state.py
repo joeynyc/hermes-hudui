@@ -9,7 +9,7 @@ router = APIRouter()
 
 
 @router.get("/state")
-async def get_state():
+def get_state():
     """Collect core state: config, memory, user, skills, sessions, timeline."""
     state = collect_all()
     return to_dict(state)

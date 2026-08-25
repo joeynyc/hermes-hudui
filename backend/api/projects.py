@@ -9,5 +9,5 @@ router = APIRouter()
 
 
 @router.get("/projects")
-async def get_projects():
+def get_projects():
     return to_dict(collect_projects())

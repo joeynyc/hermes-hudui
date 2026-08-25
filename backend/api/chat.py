@@ -55,7 +55,7 @@ class ComposerStateResponse(BaseModel):
 
 
 @router.post("/sessions", response_model=SessionResponse)
-async def create_session(request: CreateSessionRequest) -> SessionResponse:
+def create_session(request: CreateSessionRequest) -> SessionResponse:
     """Create a new chat session."""
     try:
         session = chat_engine.create_session(
@@ -75,7 +75,7 @@ async def create_session(request: CreateSessionRequest) -> SessionResponse:
 
 
 @router.get("/sessions", response_model=list[SessionResponse])
-async def list_sessions() -> list[SessionResponse]:
+def list_sessions() -> list[SessionResponse]:
     """List all active chat sessions."""
     sessions = chat_engine.list_sessions()
     return [
@@ -93,7 +93,7 @@ async def list_sessions() -> list[SessionResponse]:
 
 
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
-async def get_session(session_id: str) -> SessionResponse:
+def get_session(session_id: str) -> SessionResponse:
     """Get a specific session."""
     session = chat_engine.get_session(session_id)
     if not session:
@@ -111,7 +111,7 @@ async def get_session(session_id: str) -> SessionResponse:
 
 
 @router.delete("/sessions/{session_id}")
-async def end_session(session_id: str) -> dict[str, str]:
+def end_session(session_id: str) -> dict[str, str]:
     """End a chat session."""
     if chat_engine.end_session(session_id):
         return {"status": "ended", "session_id": session_id}
@@ -119,7 +119,7 @@ async def end_session(session_id: str) -> dict[str, str]:
 
 
 @router.post("/sessions/{session_id}/message")
-async def send_and_stream(
+def send_and_stream(
     session_id: str, request: AISDKSendRequest
 ) -> StreamingResponse:
     """Send a message and stream the response — AI SDK Data Stream Protocol v1."""
@@ -158,10 +158,18 @@ async def send_and_stream(
         raise HTTPException(status_code=500, detail=str(e))
 
     def event_generator():
-        yield 'data: {"type":"start"}\n\n'
-        for event in streamer.iter_events():
-            yield streamer.to_sse(event)
-        yield "data: [DONE]\n\n"
+        completed = False
+        try:
+            yield 'data: {"type":"start"}\n\n'
+            for event in streamer.iter_events():
+                yield streamer.to_sse(event)
+            completed = True
+            yield "data: [DONE]\n\n"
+        finally:
+            # StreamingResponse closes the generator when the client disconnects.
+            # The identity guard avoids cancelling a newer run for this session.
+            if not completed:
+                chat_engine.cancel_stream(session_id, expected_streamer=streamer)
 
     return StreamingResponse(
         event_generator(),
@@ -176,7 +184,7 @@ async def send_and_stream(
 
 
 @router.post("/sessions/{session_id}/cancel")
-async def cancel_stream(session_id: str) -> dict[str, str]:
+def cancel_stream(session_id: str) -> dict[str, str]:
     """Cancel an active streaming response by killing the subprocess."""
     session = chat_engine.get_session(session_id)
     if not session:
@@ -187,7 +195,7 @@ async def cancel_stream(session_id: str) -> dict[str, str]:
 
 
 @router.get("/sessions/{session_id}/composer", response_model=ComposerStateResponse)
-async def get_composer_state(session_id: str) -> ComposerStateResponse:
+def get_composer_state(session_id: str) -> ComposerStateResponse:
     """Get composer state for UI footer."""
     try:
         state = chat_engine.get_composer_state(session_id)
@@ -217,7 +225,7 @@ async def get_composer_state(session_id: str) -> ComposerStateResponse:
 
 
 @router.get("/available")
-async def check_availability() -> dict[str, Any]:
+def check_availability() -> dict[str, Any]:
     """Check if chat functionality is available."""
     cli_available = chat_engine.is_available()
 
@@ -228,7 +236,7 @@ async def check_availability() -> dict[str, Any]:
 
 
 @router.get("/diagnostics")
-async def check_diagnostics() -> dict[str, Any]:
+def check_diagnostics() -> dict[str, Any]:
     """Return slower chat backend diagnostics outside the tab-open path."""
     from ..chat import TmuxChatFallback
 
