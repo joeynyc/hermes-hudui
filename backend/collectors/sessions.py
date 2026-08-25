@@ -121,6 +121,10 @@ def _session_from_row(row: sqlite3.Row) -> SessionInfo:
     ended_raw = safe_get(row, "ended_at")
     ended = datetime.fromtimestamp(ended_raw) if ended_raw else None
 
+    last_activity_raw = safe_get(row, "last_activity_at")
+    last_activity = (
+        datetime.fromtimestamp(last_activity_raw) if last_activity_raw else None
+    )
     return SessionInfo(
         id=safe_get(row, "id", ""),
         source=safe_get(row, "source", "unknown"),
@@ -136,6 +140,15 @@ def _session_from_row(row: sqlite3.Row) -> SessionInfo:
         reasoning_tokens=safe_get(row, "reasoning_tokens", 0),
         estimated_cost_usd=safe_get(row, "estimated_cost_usd", 0.0),
         model=_parse_model(row),
+        profile_name=safe_get(row, "profile_name"),
+        hidden=bool(safe_get(row, "hidden", 0)),
+        pinned=bool(safe_get(row, "pinned", 0)),
+        last_activity_at=last_activity,
+        last_activity_description=safe_get(row, "last_activity_description"),
+        handoff_state=safe_get(row, "handoff_state"),
+        handoff_platform=safe_get(row, "handoff_platform"),
+        billing_provider=safe_get(row, "billing_provider"),
+        git_branch=safe_get(row, "git_branch"),
     )
 
 
@@ -165,7 +178,16 @@ def _do_collect_sessions(
                    reasoning_tokens, estimated_cost_usd, model_config,
                    {model},
                    {parent_session_id},
-                   {end_reason}
+                   {end_reason},
+                   {profile_name},
+                   {hidden},
+                   {pinned},
+                   {last_activity_at},
+                   {last_activity_description},
+                   {handoff_state},
+                   {handoff_platform},
+                   {billing_provider},
+                   {git_branch}
             FROM sessions
             WHERE {human_session_where}
             ORDER BY started_at DESC
@@ -174,6 +196,17 @@ def _do_collect_sessions(
                 model=_optional_column(columns, "model"),
                 parent_session_id=_optional_column(columns, "parent_session_id"),
                 end_reason=_optional_column(columns, "end_reason"),
+                profile_name=_optional_column(columns, "profile_name"),
+                hidden=_optional_column(columns, "hidden", "0"),
+                pinned=_optional_column(columns, "pinned", "0"),
+                last_activity_at=_optional_column(columns, "last_activity_at"),
+                last_activity_description=_optional_column(
+                    columns, "last_activity_description"
+                ),
+                handoff_state=_optional_column(columns, "handoff_state"),
+                handoff_platform=_optional_column(columns, "handoff_platform"),
+                billing_provider=_optional_column(columns, "billing_provider"),
+                git_branch=_optional_column(columns, "git_branch"),
                 human_session_where=human_session_where,
             ),
             (session_limit,),
@@ -194,7 +227,16 @@ def _do_collect_sessions(
                                    model_config,
                                    {model},
                                    {parent_session_id},
-                                   {end_reason}
+                                   {end_reason},
+                                   {profile_name},
+                                   {hidden},
+                                   {pinned},
+                                   {last_activity_at},
+                                   {last_activity_description},
+                                   {handoff_state},
+                                   {handoff_platform},
+                                   {billing_provider},
+                                   {git_branch}
                             FROM sessions
                             WHERE id = ?
                             """.format(
@@ -203,6 +245,23 @@ def _do_collect_sessions(
                                     columns, "parent_session_id"
                                 ),
                                 end_reason=_optional_column(columns, "end_reason"),
+                                profile_name=_optional_column(columns, "profile_name"),
+                                hidden=_optional_column(columns, "hidden", "0"),
+                                pinned=_optional_column(columns, "pinned", "0"),
+                                last_activity_at=_optional_column(
+                                    columns, "last_activity_at"
+                                ),
+                                last_activity_description=_optional_column(
+                                    columns, "last_activity_description"
+                                ),
+                                handoff_state=_optional_column(columns, "handoff_state"),
+                                handoff_platform=_optional_column(
+                                    columns, "handoff_platform"
+                                ),
+                                billing_provider=_optional_column(
+                                    columns, "billing_provider"
+                                ),
+                                git_branch=_optional_column(columns, "git_branch"),
                             ),
                             (tip_id,),
                         ).fetchone()

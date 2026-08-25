@@ -252,11 +252,16 @@ export default function SessionsPanel() {
                 style={{ borderBottom: '1px solid var(--hud-border)', background: 'transparent' }}
                 onMouseEnter={hoverOn}
                 onMouseLeave={hoverOff}
-                title={t('sessions.clickToRead')}
+                title={s.last_activity_description || t('sessions.clickToRead')}
               >
                 <span className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ background: sourceColor(s.source) }} />
                 <span className="flex-1 truncate">{s.title || s.id.slice(0, 8)}</span>
+                {s.pinned && <span className="text-[10px] uppercase" style={{ color: 'var(--hud-accent)' }}>{t('sessions.pinned')}</span>}
+                {s.hidden && <span className="text-[10px] uppercase" style={{ color: 'var(--hud-text-dim)' }}>{t('sessions.hidden')}</span>}
+                {s.profile_name && <span className="text-[11px] shrink-0" style={{ color: 'var(--hud-text-dim)' }}>{s.profile_name}</span>}
+                {s.model && <span className="text-[11px] shrink-0 truncate max-w-[9rem]" style={{ color: 'var(--hud-text-dim)' }}>{s.model}</span>}
+                {s.handoff_state && <span className="text-[10px] uppercase shrink-0" style={{ color: 'var(--hud-warning)' }}>{s.handoff_platform || s.handoff_state}</span>}
                 <span className="tabular-nums" style={{ color: 'var(--hud-text-dim)' }}>
                   {s.message_count}m {s.tool_call_count}t
                 </span>

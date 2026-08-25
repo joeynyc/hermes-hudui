@@ -12,6 +12,9 @@ function ProjectCard({ p }: { p: any }) {
       }}>
       <div className="flex items-center justify-between mb-0.5">
         <span className="font-bold" style={{ color: 'var(--hud-primary)' }}>{p.name}</span>
+        {p.source === 'agent' && p.slug && (
+          <span className="text-[10px] ml-2" style={{ color: 'var(--hud-text-dim)' }}>{p.slug}</span>
+        )}
         <span className="text-[13px]" style={{ color: p.dirty_files > 0 ? 'var(--hud-warning)' : 'var(--hud-success)' }}>
           {p.dirty_files > 0 ? `${p.dirty_files} ${t('projects.dirty')}` : t('projects.clean')}
         </span>
@@ -27,6 +30,13 @@ function ProjectCard({ p }: { p: any }) {
             <div className="truncate" style={{ color: 'var(--hud-text)' }}>{p.last_commit_msg}</div>
           )}
         </>
+      )}
+      {(p.description || p.board_slug || p.folder_count > 1) && (
+        <div className="truncate mb-0.5" style={{ color: 'var(--hud-text-dim)' }}>
+          {p.description || ''}
+          {p.board_slug ? ` · ${p.board_slug}` : ''}
+          {p.folder_count > 1 ? ` · ${p.folder_count} ${t('projects.folders')}` : ''}
+        </div>
       )}
       <div className="flex gap-2 mt-1">
         {p.languages?.map((lang: string) => (
