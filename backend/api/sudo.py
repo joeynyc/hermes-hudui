@@ -9,5 +9,5 @@ router = APIRouter()
 
 
 @router.get("/sudo")
-async def get_sudo():
+def get_sudo():
     return to_dict(collect_sudo())

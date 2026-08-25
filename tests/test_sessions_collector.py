@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from backend.collectors.sessions import _do_collect_sessions
+from backend.collectors.sessions import _do_collect_sessions, _extract_tool_usage
 
 
 def _make_state_db(path: Path) -> None:
@@ -102,7 +102,9 @@ def test_collect_sessions_projects_compression_root_to_tip(tmp_path: Path) -> No
     assert state.sessions[0].model == "claude-sonnet-4-6"
 
 
-def test_collect_sessions_filters_internal_tool_source_case_insensitively(tmp_path: Path) -> None:
+def test_collect_sessions_filters_internal_tool_source_case_insensitively(
+    tmp_path: Path,
+) -> None:
     db_path = tmp_path / "state.db"
     _make_state_db(db_path)
     _insert_session(db_path, id="human", source="telegram", started_at=100)
@@ -113,3 +115,43 @@ def test_collect_sessions_filters_internal_tool_source_case_insensitively(tmp_pa
 
     assert [session.id for session in state.sessions] == ["human"]
     assert state.daily_stats[0].sessions == 1
+
+
+def test_collect_sessions_bounds_rows_but_preserves_aggregate_totals(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "state.db"
+    _make_state_db(db_path)
+    for index in range(5):
+        _insert_session(
+            db_path,
+            id=f"session-{index}",
+            source="cli",
+            started_at=100 + index,
+            message_count=2,
+        )
+
+    state = _do_collect_sessions(str(db_path), session_limit=2)
+
+    assert [session.id for session in state.sessions] == ["session-4", "session-3"]
+    assert state.total_sessions == 5
+    assert state.total_messages == 10
+    assert state.by_source() == {"cli": 5}
+
+
+def test_tool_usage_is_limited_to_recent_messages(tmp_path: Path) -> None:
+    db_path = tmp_path / "state.db"
+    _make_state_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.executemany(
+            """INSERT INTO messages
+               (session_id, role, tool_calls, timestamp)
+               VALUES ('session', 'assistant', ?, ?)""",
+            [
+                ('[{"function":{"name":"old"}}]', 1),
+                ('[{"function":{"name":"recent"}}]', 2),
+                ('[{"function":{"name":"recent"}}]', 3),
+            ],
+        )
+
+    assert _extract_tool_usage(str(db_path), message_limit=2) == {"recent": 2}

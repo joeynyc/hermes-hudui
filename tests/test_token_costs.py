@@ -1,4 +1,3 @@
-import asyncio
 import sqlite3
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -50,7 +49,7 @@ def test_token_costs_returns_empty_report_before_state_db_exists(
     hermes_dir.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
 
-    data = asyncio.run(get_token_costs())
+    data = get_token_costs()
 
     assert data["today"]["session_count"] == 0
     assert data["all_time"]["total_tokens"] == 0
@@ -68,7 +67,7 @@ def test_token_costs_returns_empty_report_before_sessions_table_exists(
     sqlite3.connect(hermes_dir / "state.db").close()
     monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
 
-    data = asyncio.run(get_token_costs())
+    data = get_token_costs()
 
     assert data["all_time"]["session_count"] == 0
     assert data["top_sessions"] == []
@@ -130,7 +129,7 @@ def test_token_costs_reports_actual_deltas_cache_savings_and_top_sessions(
 
     monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
 
-    data = asyncio.run(get_token_costs())
+    data = get_token_costs()
 
     assert data["all_time"]["session_count"] == 3
     assert data["all_time"]["estimated_cost_usd"] == 2.6
@@ -208,7 +207,7 @@ def test_anthropic_opus_4x_and_fable5_pricing(tmp_path: Path, monkeypatch) -> No
     )
 
     monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
-    data = asyncio.run(get_token_costs())
+    data = get_token_costs()
 
     # Opus 4.x: input=$5/MTok, output=$25/MTok -> 1M*5 + 0.1M*25 = 5.00 + 2.50 = 7.50 each
     opus_expected = 5.00 + 2.50
@@ -327,7 +326,7 @@ def test_token_costs_handles_old_schema_without_actual_cost(
     )
     monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
 
-    data = asyncio.run(get_token_costs())
+    data = get_token_costs()
 
     assert data["all_time"]["estimated_cost_usd"] == 0.21
     assert data["all_time"]["actual_cost_usd"] == 0

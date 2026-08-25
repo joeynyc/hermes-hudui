@@ -58,6 +58,7 @@ from .api import (
     replay,
 )
 from .file_watcher import start_watcher, stop_watcher
+from .chat.engine import chat_engine
 from .websocket_manager import ws_manager
 
 logger = logging.getLogger(__name__)
@@ -261,6 +262,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     await stop_watcher()
+    chat_engine.cleanup_all()
     logger.info("Hermes HUD stopped")
 
 

@@ -19,12 +19,12 @@ def _db_path() -> Path:
 
 
 @router.get("/sessions")
-async def get_sessions():
+def get_sessions():
     return to_dict(collect_sessions())
 
 
 @router.get("/sessions/search")
-async def search_sessions(q: str = Query(..., min_length=1)):
+def search_sessions(q: str = Query(..., min_length=1)):
     """Search sessions by title or message content using FTS."""
     db = _db_path()
     if not db.exists():
@@ -113,7 +113,9 @@ async def search_sessions(q: str = Query(..., min_length=1)):
 
 
 @router.get("/sessions/{session_id}/messages")
-async def get_session_messages(session_id: str, limit: int = 200):
+def get_session_messages(
+    session_id: str, limit: int = Query(200, ge=1, le=1000)
+):
     """Fetch full message transcript for a session."""
     db = _db_path()
     if not db.exists():

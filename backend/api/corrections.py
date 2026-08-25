@@ -9,5 +9,5 @@ router = APIRouter()
 
 
 @router.get("/corrections")
-async def get_corrections():
+def get_corrections():
     return to_dict(collect_corrections())

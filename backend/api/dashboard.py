@@ -119,14 +119,14 @@ def build_executive_summary(health, costs: dict, model_analytics, providers, gat
 
 
 @router.get("/dashboard")
-async def get_dashboard():
+def get_dashboard():
     """Everything the overview narrative needs — trimmed to essentials."""
 
     state = collect_all()
     health = collect_health()
     corrections = collect_corrections()
     snapshots = load_snapshots()
-    token_costs = await get_token_costs()
+    token_costs = get_token_costs()
     model_analytics = collect_model_analytics(days=7)
     providers = collect_providers()
     gateway = collect_gateway_status()

@@ -13,7 +13,7 @@ from typing import Callable
 
 from watchfiles import Change, DefaultFilter, watch
 
-from .cache import clear_cache
+from .cache import clear_cache, clear_cache_prefixes
 from .collectors.utils import default_hermes_dir
 from .websocket_manager import ws_manager
 
@@ -42,6 +42,33 @@ DIR_PATTERNS = {
     "logs": ["health", "gateway", "sudo"],
     "plugins": ["plugins", "health"],
 }
+
+# Collector cache keys affected by each watcher data type. Data types without
+# cached collectors intentionally clear nothing; unknown generic changes still
+# fall back to a full clear for correctness.
+CACHE_PREFIXES_BY_DATA_TYPE = {
+    "sessions": {"sessions"},
+    "patterns": {"patterns"},
+    "config": {"profiles", "providers", "gateway", "model_info"},
+    "profiles": {"profiles", "providers", "gateway", "model_info"},
+    "skills": {"skills"},
+    "health": {"providers", "gateway", "model_info", "models_dev_cache"},
+    "model-info": {"model_info", "models_dev_cache", "providers"},
+    "providers": {"providers", "model_info", "models_dev_cache"},
+    "gateway": {"gateway"},
+}
+
+
+def _invalidate_cache_for(data_types: set[str]) -> int:
+    """Invalidate only collectors affected by known change types."""
+    if "state" in data_types:
+        return clear_cache()
+    prefixes = {
+        prefix
+        for data_type in data_types
+        for prefix in CACHE_PREFIXES_BY_DATA_TYPE.get(data_type, set())
+    }
+    return clear_cache_prefixes(prefixes)
 
 
 def _force_polling() -> bool:
@@ -232,8 +259,8 @@ class FileWatcherService:
     ) -> None:
         """Handle detected changes (runs in main async loop)."""
         try:
-            # Clear cache
-            clear_cache()
+            # Clear only collector caches affected by these paths.
+            _invalidate_cache_for(data_types_changed)
 
             # Broadcast to WebSocket clients
             await ws_manager.broadcast(
