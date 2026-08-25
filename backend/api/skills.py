@@ -9,7 +9,7 @@ router = APIRouter()
 
 
 @router.get("/skills")
-async def get_skills():
+def get_skills():
     state = collect_skills()
     result = to_dict(state)
     # These are methods, not properties, so they're not auto-serialized

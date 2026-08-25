@@ -9,5 +9,5 @@ router = APIRouter()
 
 
 @router.get("/agents")
-async def get_agents():
+def get_agents():
     return to_dict(collect_agents())

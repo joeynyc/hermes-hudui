@@ -9,5 +9,5 @@ router = APIRouter()
 
 
 @router.get("/patterns")
-async def get_patterns():
+def get_patterns():
     return to_dict(collect_patterns())

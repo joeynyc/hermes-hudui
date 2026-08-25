@@ -24,14 +24,16 @@ from .models import (
 from .streamer import ChatStreamer
 
 # Regex to match box-drawing decoration lines from hermes CLI output
-_BOX_DRAWING_RE = re.compile(r'^[\s\r]*[╭╮╰╯│─┌┐└┘├┤┬┴┼◉◈●▸▹▶▷■□▪▫]+[\s─╭╮╰╯│┌┐└┘├┤┬┴┼]*$')
+_BOX_DRAWING_RE = re.compile(
+    r"^[\s\r]*[╭╮╰╯│─┌┐└┘├┤┬┴┼◉◈●▸▹▶▷■□▪▫]+[\s─╭╮╰╯│┌┐└┘├┤┬┴┼]*$"
+)
 # Lines starting with a box border character — top/bottom borders or panel content
-_BOX_BORDER_START_RE = re.compile(r'^[\s\r]*[╭╰┌└]─')
-_BOX_CONTENT_RE = re.compile(r'^[\s\r]*│(.*)│[\s\r]*$')
-_SESSION_ID_RE = re.compile(r'^session_id:\s+(\S+)')
-_HEADER_RE = re.compile(r'[╭╰][\s─]*[◉◈●]?\s*(MOTHER|HERMES|hermes)\s*[─╮╯]')
+_BOX_BORDER_START_RE = re.compile(r"^[\s\r]*[╭╰┌└]─")
+_BOX_CONTENT_RE = re.compile(r"^[\s\r]*│(.*)│[\s\r]*$")
+_SESSION_ID_RE = re.compile(r"^session_id:\s+(\S+)")
+_HEADER_RE = re.compile(r"[╭╰][\s─]*[◉◈●]?\s*(MOTHER|HERMES|hermes)\s*[─╮╯]")
 # Hermes system warning lines (context compression, etc.) — not part of the model response
-_WARNING_RE = re.compile(r'^⚠')
+_WARNING_RE = re.compile(r"^⚠")
 
 
 def _emit_tool_events(streamer: "ChatStreamer", hermes_session_id: str) -> None:
@@ -70,7 +72,9 @@ def _emit_tool_events(streamer: "ChatStreamer", hermes_session_id: str) -> None:
                     calls = [calls]
                 for call in calls:
                     fn = call.get("function", {})
-                    tool_id = call.get("id") or call.get("call_id") or fn.get("name", "tool")
+                    tool_id = (
+                        call.get("id") or call.get("call_id") or fn.get("name", "tool")
+                    )
                     name = fn.get("name", "unknown")
                     try:
                         args = json.loads(fn.get("arguments", "{}"))
@@ -109,8 +113,9 @@ class ChatEngine:
         self._sessions: dict[str, ChatSession] = {}
         self._streamers: dict[str, ChatStreamer] = {}
         self._processes: dict[str, subprocess.Popen] = {}
-        self._run_state: dict[str, dict[str, float | str | None]] = {}
+        self._run_state: dict[str, dict[str, float | str | bool | None]] = {}
         self._run_history: dict[str, list[dict[str, int | bool | str | None]]] = {}
+        self._state_lock = threading.RLock()
         self._initialized = True
         self._hermes_path = shutil.which("hermes")
         self._cli_available = self._check_cli()
@@ -150,7 +155,9 @@ class ChatEngine:
         if isinstance(model_cfg, str):
             return model_cfg.strip() or "unknown"
         if isinstance(model_cfg, dict):
-            model = str(model_cfg.get("default") or model_cfg.get("model") or "").strip()
+            model = str(
+                model_cfg.get("default") or model_cfg.get("model") or ""
+            ).strip()
             return model or "unknown"
         return "unknown"
 
@@ -173,38 +180,65 @@ class ChatEngine:
             title=f"Chat {session_id}",
             backend_type="cli",
         )
-        self._sessions[session_id] = session
+        with self._state_lock:
+            self._sessions[session_id] = session
 
         return session
 
     def get_session(self, session_id: str) -> Optional[ChatSession]:
         """Get session by ID."""
-        return self._sessions.get(session_id)
+        with self._state_lock:
+            return self._sessions.get(session_id)
 
     def list_sessions(self) -> list[ChatSession]:
         """List all active sessions."""
-        return list(self._sessions.values())
+        with self._state_lock:
+            return list(self._sessions.values())
+
+    @staticmethod
+    def _terminate_process(process: subprocess.Popen) -> None:
+        """Terminate a child process, escalating if it does not exit."""
+        try:
+            process.terminate()
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            try:
+                process.kill()
+                process.wait(timeout=1)
+            except Exception:
+                pass
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+
+    def _update_run_state(
+        self, session_id: str, run_id: str, **updates: float | str | bool | None
+    ) -> bool:
+        """Update state only when the worker still owns the current run."""
+        with self._state_lock:
+            state = self._run_state.get(session_id)
+            if not state or state.get("run_id") != run_id:
+                return False
+            state.update(updates)
+            return True
 
     def end_session(self, session_id: str) -> bool:
         """End a chat session."""
-        if session_id in self._sessions:
-            self._sessions[session_id].is_active = False
+        with self._state_lock:
+            session = self._sessions.get(session_id)
+            if session is None:
+                return False
+            session.is_active = False
+            process = self._processes.pop(session_id, None)
+            streamer = self._streamers.pop(session_id, None)
 
-            # Kill running process
-            if session_id in self._processes:
-                try:
-                    self._processes[session_id].kill()
-                except Exception:
-                    pass
-                del self._processes[session_id]
-
-            # Cleanup streamer
-            if session_id in self._streamers:
-                self._streamers[session_id].stop()
-                del self._streamers[session_id]
-
-            return True
-        return False
+        if streamer:
+            streamer.stop()
+        if process:
+            self._terminate_process(process)
+        return True
 
     def send_message(
         self,
@@ -212,36 +246,36 @@ class ChatEngine:
         content: str,
     ) -> ChatStreamer:
         """Send a message using hermes chat -q -Q and stream stdout."""
-        session = self._sessions.get(session_id)
-        if not session:
-            raise ChatNotAvailableError(f"Session {session_id} not found")
-
-        if not session.is_active:
-            raise ChatNotAvailableError(f"Session {session_id} is inactive")
-
-        # Clean up previous streamer/process
-        if session_id in self._streamers:
-            self._streamers[session_id].stop()
-        if session_id in self._processes:
-            try:
-                self._processes[session_id].kill()
-            except Exception:
-                pass
-
         streamer = ChatStreamer()
-        self._streamers[session_id] = streamer
+        run_id = str(uuid.uuid4())
+        with self._state_lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                raise ChatNotAvailableError(f"Session {session_id} not found")
+            if not session.is_active:
+                raise ChatNotAvailableError(f"Session {session_id} is inactive")
 
-        # Update session stats
-        session.message_count += 1
-        session.last_activity = datetime.now()
-        self._run_state[session_id] = {
-            "status": "starting_hermes",
-            "started_at": time.monotonic(),
-            "process_started_at": None,
-            "first_token_at": None,
-            "finished_at": None,
-            "resumed": bool(session.hermes_session_id),
-        }
+            previous_streamer = self._streamers.get(session_id)
+            previous_process = self._processes.get(session_id)
+            self._streamers[session_id] = streamer
+
+            # Update session stats
+            session.message_count += 1
+            session.last_activity = datetime.now()
+            self._run_state[session_id] = {
+                "run_id": run_id,
+                "status": "starting_hermes",
+                "started_at": time.monotonic(),
+                "process_started_at": None,
+                "first_token_at": None,
+                "finished_at": None,
+                "resumed": bool(session.hermes_session_id),
+            }
+
+        if previous_streamer:
+            previous_streamer.stop()
+        if previous_process:
+            self._terminate_process(previous_process)
 
         # Build command: hermes chat -q "message" -Q (quiet mode)
         cmd = [self._hermes_path, "chat", "-q", content, "-Q"]
@@ -256,7 +290,7 @@ class ChatEngine:
 
         def _is_decoration_line(line: str) -> bool:
             """Check if a line is CLI decoration (box drawing, headers)."""
-            stripped = line.strip().replace('\r', '')
+            stripped = line.strip().replace("\r", "")
             if not stripped:
                 return False
             if _HEADER_RE.search(stripped):
@@ -274,6 +308,7 @@ class ChatEngine:
             return m.group(1).strip() if m else None
 
         def run_subprocess():
+            process: subprocess.Popen | None = None
             try:
                 process = subprocess.Popen(
                     cmd,
@@ -281,10 +316,23 @@ class ChatEngine:
                     stderr=subprocess.PIPE,
                     cwd=os.path.expanduser("~"),
                 )
-                self._processes[session_id] = process
-                if session_id in self._run_state:
-                    self._run_state[session_id]["process_started_at"] = time.monotonic()
-                    self._run_state[session_id]["status"] = "connecting_model"
+                with self._state_lock:
+                    owns_run = (
+                        self._streamers.get(session_id) is streamer
+                        and self._run_state.get(session_id, {}).get("run_id") == run_id
+                        and not streamer._stopped.is_set()
+                    )
+                    if owns_run:
+                        self._processes[session_id] = process
+                if not owns_run:
+                    self._terminate_process(process)
+                    return
+                self._update_run_state(
+                    session_id,
+                    run_id,
+                    process_started_at=time.monotonic(),
+                    status="connecting_model",
+                )
 
                 # Stream stdout in chunks; process complete lines through the
                 # decoration filter and emit partial trailing content immediately
@@ -323,7 +371,7 @@ class ChatEngine:
                         if not stripped:
                             in_warning_block = False
                             return
-                        if text[0] in (' ', '\t'):
+                        if text[0] in (" ", "\t"):
                             return
                         in_warning_block = False
 
@@ -342,11 +390,12 @@ class ChatEngine:
                         return
 
                     started_content = True
-                    state = self._run_state.get(session_id)
-                    if state:
-                        if state.get("first_token_at") is None:
-                            state["first_token_at"] = time.monotonic()
-                        state["status"] = "streaming"
+                    with self._state_lock:
+                        state = self._run_state.get(session_id)
+                        if state and state.get("run_id") == run_id:
+                            if state.get("first_token_at") is None:
+                                state["first_token_at"] = time.monotonic()
+                            state["status"] = "streaming"
                     streamer.emit_token(text)
 
                 while True:
@@ -375,72 +424,96 @@ class ChatEngine:
                 process.wait()
                 stderr_thread.join(timeout=2)
 
-                hermes_session_id = captured_session_id[0] if captured_session_id else None
+                hermes_session_id = (
+                    captured_session_id[0] if captured_session_id else None
+                )
                 if hermes_session_id:
-                    session.hermes_session_id = hermes_session_id
+                    with self._state_lock:
+                        if self._run_state.get(session_id, {}).get("run_id") == run_id:
+                            session.hermes_session_id = hermes_session_id
 
                 # Emit tool calls and reasoning from state.db
                 if hermes_session_id and not streamer._stopped.is_set():
-                    if session_id in self._run_state:
-                        self._run_state[session_id]["status"] = "finalizing_tools"
+                    self._update_run_state(
+                        session_id, run_id, status="finalizing_tools"
+                    )
                     _emit_tool_events(streamer, hermes_session_id)
 
                 if process.returncode != 0:
-                    if session_id in self._run_state:
-                        self._run_state[session_id]["status"] = "error"
-                    error_detail = "\n".join(stderr_lines) or f"hermes exited with code {process.returncode}"
+                    self._update_run_state(session_id, run_id, status="error")
+                    error_detail = (
+                        "\n".join(stderr_lines)
+                        or f"hermes exited with code {process.returncode}"
+                    )
                     streamer.emit_error("CLI error: " + error_detail)
                 else:
-                    if session_id in self._run_state:
-                        self._run_state[session_id]["status"] = "complete"
+                    self._update_run_state(session_id, run_id, status="complete")
                     streamer.emit_done()
 
             except Exception as e:
-                if session_id in self._run_state:
-                    self._run_state[session_id]["status"] = "error"
+                self._update_run_state(session_id, run_id, status="error")
                 streamer.emit_error(f"Failed to run hermes: {e}")
             finally:
-                if session_id in self._run_state:
-                    self._run_state[session_id]["finished_at"] = time.monotonic()
-                    self._record_run_history(session_id)
-                self._processes.pop(session_id, None)
-                if self._streamers.get(session_id) is streamer:
-                    self._streamers.pop(session_id, None)
+                with self._state_lock:
+                    state = self._run_state.get(session_id)
+                    if state and state.get("run_id") == run_id:
+                        state["finished_at"] = time.monotonic()
+                        self._record_run_history_locked(session_id)
+                    if (
+                        process is not None
+                        and self._processes.get(session_id) is process
+                    ):
+                        self._processes.pop(session_id, None)
+                    if self._streamers.get(session_id) is streamer:
+                        self._streamers.pop(session_id, None)
 
         threading.Thread(target=run_subprocess, daemon=True).start()
 
         return streamer
 
-    def cancel_stream(self, session_id: str) -> None:
-        """Kill the active subprocess for a session, stopping the stream."""
-        self._run_state.setdefault(session_id, {"started_at": time.monotonic()})
-        process = self._processes.pop(session_id, None)
-        if process:
-            if session_id in self._run_state:
-                self._run_state[session_id]["status"] = "cancelling"
-            try:
-                process.terminate()
-                process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                try:
-                    process.kill()
-                    process.wait(timeout=1)
-                except Exception:
-                    pass
-            except Exception:
-                pass
+    def cancel_stream(
+        self, session_id: str, expected_streamer: ChatStreamer | None = None
+    ) -> bool:
+        """Stop the active run, optionally only if the caller still owns it."""
+        with self._state_lock:
+            current_streamer = self._streamers.get(session_id)
+            if (
+                expected_streamer is not None
+                and current_streamer is not expected_streamer
+            ):
+                return False
+            process = self._processes.pop(session_id, None)
+            streamer = self._streamers.pop(session_id, None)
+            if process is None and streamer is None:
+                return False
+            state = self._run_state.setdefault(
+                session_id, {"started_at": time.monotonic()}
+            )
+            state["status"] = "cancelling"
 
-        streamer = self._streamers.pop(session_id, None)
         if streamer:
             streamer.stop()
-        if session_id in self._run_state:
-            self._run_state[session_id]["status"] = "cancelled"
-            self._run_state[session_id]["finished_at"] = time.monotonic()
-            self._record_run_history(session_id)
+        if process:
+            self._terminate_process(process)
+
+        with self._state_lock:
+            state = self._run_state.get(session_id)
+            if state is not None:
+                state["status"] = "cancelled"
+                state["finished_at"] = time.monotonic()
+                self._record_run_history_locked(session_id)
+        return True
 
     def _record_run_history(self, session_id: str) -> None:
         """Store a compact timing summary for recent chat turns."""
+        with self._state_lock:
+            self._record_run_history_locked(session_id)
+
+    def _record_run_history_locked(self, session_id: str) -> None:
+        """Store run history while ``_state_lock`` is held."""
         state = self._run_state.get(session_id) or {}
+        if state.get("history_recorded"):
+            return
         started_at = state.get("started_at")
         finished_at = state.get("finished_at")
         if not isinstance(started_at, float) or not isinstance(finished_at, float):
@@ -466,14 +539,18 @@ class ChatEngine:
         history = self._run_history.setdefault(session_id, [])
         history.append(sample)
         del history[:-20]
+        state["history_recorded"] = True
 
     def get_composer_state(self, session_id: str) -> ComposerState:
         """Get current composer state for UI."""
-        session = self._sessions.get(session_id)
-        if not session:
-            return ComposerState(model="unknown")
+        with self._state_lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return ComposerState(model="unknown")
+            process = self._processes.get(session_id)
+            run_state = dict(self._run_state.get(session_id) or {})
+            history = list(self._run_history.get(session_id, []))
 
-        process = self._processes.get(session_id)
         is_streaming = False
         if process is not None:
             try:
@@ -481,7 +558,6 @@ class ChatEngine:
             except Exception:
                 is_streaming = True
 
-        run_state = self._run_state.get(session_id) or {}
         started_at = run_state.get("started_at")
         first_token_at = run_state.get("first_token_at")
         process_started_at = run_state.get("process_started_at")
@@ -489,7 +565,9 @@ class ChatEngine:
         now = time.monotonic()
         end_at = finished_at if isinstance(finished_at, float) else now
 
-        elapsed_ms = int((end_at - started_at) * 1000) if isinstance(started_at, float) else 0
+        elapsed_ms = (
+            int((end_at - started_at) * 1000) if isinstance(started_at, float) else 0
+        )
         first_token_ms = (
             int((first_token_at - started_at) * 1000)
             if isinstance(started_at, float) and isinstance(first_token_at, float)
@@ -506,8 +584,9 @@ class ChatEngine:
             else None
         )
 
-        status = str(run_state.get("status") or ("streaming" if is_streaming else "idle"))
-        history = self._run_history.get(session_id, [])
+        status = str(
+            run_state.get("status") or ("streaming" if is_streaming else "idle")
+        )
         first_token_samples = [
             item["first_token_ms"]
             for item in history
@@ -534,9 +613,7 @@ class ChatEngine:
                 else None
             ),
             recent_total_avg_ms=(
-                int(sum(total_samples) / len(total_samples))
-                if total_samples
-                else None
+                int(sum(total_samples) / len(total_samples)) if total_samples else None
             ),
             recent_runs=len(history),
             context_tokens=0,
@@ -544,7 +621,9 @@ class ChatEngine:
 
     def cleanup_all(self) -> None:
         """Clean up all sessions."""
-        for session_id in list(self._sessions.keys()):
+        with self._state_lock:
+            session_ids = list(self._sessions)
+        for session_id in session_ids:
             self.end_session(session_id)
 
 

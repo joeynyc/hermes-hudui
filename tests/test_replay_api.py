@@ -1,5 +1,3 @@
-import asyncio
-
 from backend.api.replay import build_replay_run, router
 
 
@@ -36,7 +34,7 @@ def test_build_endpoint_returns_serialized_replay(monkeypatch) -> None:
 
     monkeypatch.setattr("backend.api.replay.get_replay_detail", fake_detail)
 
-    response = asyncio.run(build_replay_run("session-1"))
+    response = build_replay_run("session-1")
 
     assert response["run"]["source_session_id"] == "session-1"
 

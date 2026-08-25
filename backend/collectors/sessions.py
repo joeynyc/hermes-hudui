@@ -14,17 +14,27 @@ from ..cache import get_cached_or_compute
 from .models import DailyStats, SessionInfo, SessionsState
 from .utils import default_hermes_dir, safe_get
 
+SESSION_LIST_LIMIT = 500
+TOOL_USAGE_MESSAGE_LIMIT = 10_000
 
-def _extract_tool_usage(db_path: str) -> dict[str, int]:
-    """Extract tool usage counts from tool_calls JSON in messages."""
+
+def _extract_tool_usage(
+    db_path: str, message_limit: int = TOOL_USAGE_MESSAGE_LIMIT
+) -> dict[str, int]:
+    """Extract recent tool usage without loading the full messages table."""
     usage: dict[str, int] = {}
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT tool_calls FROM messages WHERE tool_calls IS NOT NULL AND tool_calls != ''"
+            """SELECT tool_calls
+               FROM messages
+               WHERE tool_calls IS NOT NULL AND tool_calls != ''
+               ORDER BY timestamp DESC
+               LIMIT ?""",
+            (message_limit,),
         )
-        for (tc_json,) in cursor.fetchall():
+        for (tc_json,) in cursor:
             try:
                 calls = json.loads(tc_json)
                 if isinstance(calls, list):
@@ -142,10 +152,15 @@ def _session_from_row(row: sqlite3.Row) -> SessionInfo:
     )
 
 
-def _do_collect_sessions(db_path: str) -> SessionsState:
+def _do_collect_sessions(
+    db_path: str, session_limit: int = SESSION_LIST_LIMIT
+) -> SessionsState:
     """Actually read sessions from SQLite (internal, uncached)."""
     sessions: list[SessionInfo] = []
     daily_stats: list[DailyStats] = []
+    aggregate_by_source: dict[str, int] = {}
+    earliest_started_at: datetime | None = None
+    latest_started_at: datetime | None = None
 
     try:
         conn = sqlite3.connect(db_path)
@@ -154,7 +169,8 @@ def _do_collect_sessions(db_path: str) -> SessionsState:
         columns = _table_columns(cursor, "sessions")
         human_session_where = _human_session_where(columns)
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, source, title, started_at, ended_at,
                    message_count, tool_call_count,
                    input_tokens, output_tokens,
@@ -175,23 +191,26 @@ def _do_collect_sessions(db_path: str) -> SessionsState:
             FROM sessions
             WHERE {human_session_where}
             ORDER BY started_at DESC
+            LIMIT ?
         """.format(
-            model=_optional_column(columns, "model"),
-            parent_session_id=_optional_column(columns, "parent_session_id"),
-            end_reason=_optional_column(columns, "end_reason"),
-            profile_name=_optional_column(columns, "profile_name"),
-            hidden=_optional_column(columns, "hidden", "0"),
-            pinned=_optional_column(columns, "pinned", "0"),
-            last_activity_at=_optional_column(columns, "last_activity_at"),
-            last_activity_description=_optional_column(
-                columns, "last_activity_description"
+                model=_optional_column(columns, "model"),
+                parent_session_id=_optional_column(columns, "parent_session_id"),
+                end_reason=_optional_column(columns, "end_reason"),
+                profile_name=_optional_column(columns, "profile_name"),
+                hidden=_optional_column(columns, "hidden", "0"),
+                pinned=_optional_column(columns, "pinned", "0"),
+                last_activity_at=_optional_column(columns, "last_activity_at"),
+                last_activity_description=_optional_column(
+                    columns, "last_activity_description"
+                ),
+                handoff_state=_optional_column(columns, "handoff_state"),
+                handoff_platform=_optional_column(columns, "handoff_platform"),
+                billing_provider=_optional_column(columns, "billing_provider"),
+                git_branch=_optional_column(columns, "git_branch"),
+                human_session_where=human_session_where,
             ),
-            handoff_state=_optional_column(columns, "handoff_state"),
-            handoff_platform=_optional_column(columns, "handoff_platform"),
-            billing_provider=_optional_column(columns, "billing_provider"),
-            git_branch=_optional_column(columns, "git_branch"),
-            human_session_where=human_session_where,
-        ))
+            (session_limit,),
+        )
 
         for row in cursor.fetchall():
             try:
@@ -222,7 +241,9 @@ def _do_collect_sessions(db_path: str) -> SessionsState:
                             WHERE id = ?
                             """.format(
                                 model=_optional_column(columns, "model"),
-                                parent_session_id=_optional_column(columns, "parent_session_id"),
+                                parent_session_id=_optional_column(
+                                    columns, "parent_session_id"
+                                ),
                                 end_reason=_optional_column(columns, "end_reason"),
                                 profile_name=_optional_column(columns, "profile_name"),
                                 hidden=_optional_column(columns, "hidden", "0"),
@@ -252,8 +273,39 @@ def _do_collect_sessions(db_path: str) -> SessionsState:
                 logger.warning("Skipping unparseable session row", exc_info=True)
                 continue
 
+        cursor.execute(
+            """
+            SELECT source, COUNT(*) AS count,
+                   MIN(started_at) AS earliest_started_at,
+                   MAX(started_at) AS latest_started_at
+            FROM sessions
+            WHERE {human_session_where}
+            GROUP BY source
+        """.format(human_session_where=human_session_where)
+        )
+        for row in cursor.fetchall():
+            source = safe_get(row, "source", "unknown")
+            aggregate_by_source[source] = safe_get(row, "count", 0)
+            earliest = safe_get(row, "earliest_started_at")
+            latest = safe_get(row, "latest_started_at")
+            if earliest:
+                parsed = datetime.fromtimestamp(earliest)
+                earliest_started_at = (
+                    parsed
+                    if earliest_started_at is None
+                    else min(earliest_started_at, parsed)
+                )
+            if latest:
+                parsed = datetime.fromtimestamp(latest)
+                latest_started_at = (
+                    parsed
+                    if latest_started_at is None
+                    else max(latest_started_at, parsed)
+                )
+
         # Daily stats
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT date(started_at, 'unixepoch') as day,
                    COUNT(*) as sessions,
                    SUM(message_count) as msgs,
@@ -263,7 +315,8 @@ def _do_collect_sessions(db_path: str) -> SessionsState:
             WHERE {human_session_where}
             GROUP BY day
             ORDER BY day
-        """.format(human_session_where=human_session_where))
+        """.format(human_session_where=human_session_where)
+        )
 
         for row in cursor.fetchall():
             try:
@@ -291,6 +344,9 @@ def _do_collect_sessions(db_path: str) -> SessionsState:
         sessions=sessions,
         daily_stats=daily_stats,
         tool_usage=tool_usage,
+        aggregate_by_source=aggregate_by_source,
+        earliest_started_at=earliest_started_at,
+        latest_started_at=latest_started_at,
     )
 
 

@@ -9,6 +9,6 @@ router = APIRouter()
 
 
 @router.get("/timeline")
-async def get_timeline():
+def get_timeline():
     state = collect_all()
     return to_dict(state.timeline)

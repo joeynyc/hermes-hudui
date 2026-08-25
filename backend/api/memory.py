@@ -77,7 +77,7 @@ def _with_lock(target: MemoryTarget, fn):
 
 
 @router.get("/memory")
-async def get_memory():
+def get_memory():
     """Memory and user profile state."""
     config = collect_config()
     memory, user = collect_memory(

@@ -10,6 +10,7 @@ from typing import Optional
 
 # ── Memory ──────────────────────────────────────────────────
 
+
 @dataclass
 class MemoryEntry:
     text: str
@@ -40,6 +41,7 @@ class MemoryState:
 
 
 # ── Skills ──────────────────────────────────────────────────
+
 
 @dataclass
 class SkillInfo:
@@ -78,6 +80,7 @@ class SkillsState:
 
 
 # ── Plugins ─────────────────────────────────────────────────
+
 
 @dataclass
 class PluginInfo:
@@ -118,7 +121,11 @@ class PluginsState:
 
     @property
     def agent_count(self) -> int:
-        return sum(1 for p in self.plugins if p.provides_tools or p.runtime_status != "inactive")
+        return sum(
+            1
+            for p in self.plugins
+            if p.provides_tools or p.runtime_status != "inactive"
+        )
 
     @property
     def hidden_count(self) -> int:
@@ -129,6 +136,7 @@ class PluginsState:
 
 
 # ── Sessions ────────────────────────────────────────────────
+
 
 @dataclass
 class SessionInfo:
@@ -181,25 +189,36 @@ class SessionsState:
     sessions: list[SessionInfo] = field(default_factory=list)
     daily_stats: list[DailyStats] = field(default_factory=list)
     tool_usage: dict[str, int] = field(default_factory=dict)  # tool_name -> count
+    aggregate_by_source: dict[str, int] = field(default_factory=dict)
+    earliest_started_at: Optional[datetime] = None
+    latest_started_at: Optional[datetime] = None
 
     @property
     def total_sessions(self) -> int:
-        return len(self.sessions)
+        return sum(day.sessions for day in self.daily_stats) or len(self.sessions)
 
     @property
     def total_messages(self) -> int:
-        return sum(s.message_count for s in self.sessions)
+        return sum(day.messages for day in self.daily_stats) or sum(
+            s.message_count for s in self.sessions
+        )
 
     @property
     def total_tool_calls(self) -> int:
-        return sum(s.tool_call_count for s in self.sessions)
+        return sum(day.tool_calls for day in self.daily_stats) or sum(
+            s.tool_call_count for s in self.sessions
+        )
 
     @property
     def total_tokens(self) -> int:
-        return sum(s.total_tokens for s in self.sessions)
+        return sum(day.tokens for day in self.daily_stats) or sum(
+            s.total_tokens for s in self.sessions
+        )
 
     @property
     def date_range(self) -> tuple[Optional[datetime], Optional[datetime]]:
+        if self.earliest_started_at or self.latest_started_at:
+            return self.earliest_started_at, self.latest_started_at
         if not self.sessions:
             return None, None
         return (
@@ -208,10 +227,13 @@ class SessionsState:
         )
 
     def by_source(self) -> dict[str, int]:
-        return dict(Counter(s.source for s in self.sessions))
+        return self.aggregate_by_source or dict(
+            Counter(s.source for s in self.sessions)
+        )
 
 
 # ── Prompt Patterns ─────────────────────────────────────────
+
 
 @dataclass
 class TaskCluster:
@@ -268,6 +290,7 @@ class PatternsState:
 
 # ── Config ──────────────────────────────────────────────────
 
+
 @dataclass
 class ConfigState:
     model: str = ""
@@ -282,6 +305,7 @@ class ConfigState:
 
 
 # ── Sudo ───────────────────────────────────────────────────
+
 
 @dataclass
 class SudoCommand:
@@ -320,6 +344,7 @@ class SudoState:
 
 # ── Timeline Events ────────────────────────────────────────
 
+
 @dataclass
 class TimelineEvent:
     timestamp: datetime
@@ -330,6 +355,7 @@ class TimelineEvent:
 
 
 # ── Snapshot (for diff tracking) ───────────────────────────
+
 
 @dataclass
 class HUDSnapshot:
@@ -348,6 +374,7 @@ class HUDSnapshot:
 
 
 # ── Profiles ───────────────────────────────────────────────
+
 
 @dataclass
 class ProfileInfo:
@@ -392,11 +419,19 @@ class ProfileInfo:
 
     @property
     def memory_capacity_pct(self) -> float:
-        return (self.memory_chars / self.memory_max_chars * 100) if self.memory_max_chars > 0 else 0
+        return (
+            (self.memory_chars / self.memory_max_chars * 100)
+            if self.memory_max_chars > 0
+            else 0
+        )
 
     @property
     def user_capacity_pct(self) -> float:
-        return (self.user_chars / self.user_max_chars * 100) if self.user_max_chars > 0 else 0
+        return (
+            (self.user_chars / self.user_max_chars * 100)
+            if self.user_max_chars > 0
+            else 0
+        )
 
     @property
     def total_tokens(self) -> int:
@@ -417,7 +452,11 @@ class ProfilesState:
 
     @property
     def active_count(self) -> int:
-        return sum(1 for p in self.profiles if p.gateway_status == "active" or p.server_status == "running")
+        return sum(
+            1
+            for p in self.profiles
+            if p.gateway_status == "active" or p.server_status == "running"
+        )
 
     def local_profiles(self) -> list[ProfileInfo]:
         return [p for p in self.profiles if p.is_local]
@@ -427,6 +466,7 @@ class ProfilesState:
 
 
 # ── Full HUD State ─────────────────────────────────────────
+
 
 @dataclass
 class HUDState:
@@ -440,6 +480,7 @@ class HUDState:
 
 
 # ── Providers (OAuth status) ────────────────────────────────
+
 
 @dataclass
 class ProviderAuth:
@@ -465,6 +506,7 @@ class ProvidersState:
 
 
 # ── Gateway status + actions ────────────────────────────────
+
 
 @dataclass
 class PlatformStatus:
@@ -527,6 +569,7 @@ class GatewayState:
 
 
 # ── Model capabilities ──────────────────────────────────────
+
 
 @dataclass
 class ModelCapabilities:
