@@ -5,6 +5,7 @@ All notable changes to hermes-hudui are documented here.
 ## [Unreleased]
 
 ### Changed
+- **Costs pricing table** — resynced `MODEL_PRICING` to August 2026 first-party rates: GPT-5.6 Sol/Terra/Luna ($4/$20, $2/$12, $0.20/$1.20), GPT-5.5 API ($5/$30), Gemini 2.5 Flash ($0.30/$2.50), and Sonnet 5's $2/$10 rate as the permanent standard. Added current models that were missing or inherited a sibling rate: Grok 4.6/4.5/4.3, GPT-5.6 Cyber, Gemini 3.5/3.6 Flash, DeepSeek V4, MiniMax M3, Qwen3.8 Max, and MiMo V2.5.
 - **Agent compatibility pin** — Health now verifies against Hermes Agent **v0.20.3** and `state.db` schema **v26**, while still accepting the older v16/v23 baselines.
 - **Cron 0.20 fields** — Cron list/create now surface continuity, monitor mode, no-agent jobs, per-job model/provider, notepad keys, and recent execution attempts from `cron/notepad.db` + `cron/executions.db`.
 - **Sessions row fields** — Sessions list includes profile, pin/hide, last activity, handoff, billing provider, and git branch when present.
