@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import subprocess
-import time
-from pathlib import Path
-from typing import Optional
 
-from .models import ChatSession, StreamingEvent
+from .models import StreamingEvent
 from .streamer import ChatStreamer
 
 

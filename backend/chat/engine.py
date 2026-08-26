@@ -19,7 +19,6 @@ from backend.collectors.utils import default_hermes_dir, load_yaml
 from .models import (
     ChatSession,
     ComposerState,
-    StreamingEvent,
 )
 from .streamer import ChatStreamer
 

@@ -194,7 +194,6 @@ class FileWatcherService:
 
     def _run_sync_watcher(self) -> None:
         """Synchronous watcher to run in background thread."""
-        import threading
         import time
 
         # Track last broadcast time per data type (throttle: max 1 broadcast per 5 seconds per type)

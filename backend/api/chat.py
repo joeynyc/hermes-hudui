@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -10,9 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..chat import (
-    ChatEngine,
     ChatNotAvailableError,
-    ChatSession,
     chat_engine,
 )
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -213,7 +210,7 @@ def get_composer_state(session_id: str) -> ComposerStateResponse:
             recent_total_avg_ms=state.recent_total_avg_ms,
             recent_runs=state.recent_runs,
         )
-    except Exception as e:
+    except Exception:
         # Return default if session not found
         return ComposerStateResponse(
             model="unknown",
