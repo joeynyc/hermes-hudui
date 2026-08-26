@@ -19,8 +19,13 @@ except TypeError:
     router = _NoopRouter()
 
 # ── Pricing per 1M tokens (USD) ──────────────────────────
-# Source: https://platform.claude.com/docs/en/about-claude/models/overview (July 2026)
-# Source: https://openai.com/api/pricing/ (April 2026)
+# Source: https://platform.claude.com/docs/en/about-claude/pricing (August 2026)
+# Source: https://developers.openai.com/api/docs/pricing (August 2026)
+# Source: https://docs.x.ai/developers/pricing (August 2026)
+# Source: https://ai.google.dev/gemini-api/docs/pricing (August 2026)
+# Source: https://api-docs.deepseek.com/quick_start/pricing (August 2026)
+# Long-context / peak / priority tiers are not modeled — the table uses each
+# vendor's standard short-context (or off-peak) list rate.
 
 # Shared pricing tiers (reused by aliases below)
 _SONNET_4X = {"input": 3.00, "output": 15.00, "cache_read": 0.30, "cache_write": 3.75, "reasoning": 3.00}
@@ -28,19 +33,26 @@ _SONNET = _SONNET_4X  # legacy alias kept for non-Anthropic models below
 _OPUS_4X = {"input": 5.00, "output": 25.00, "cache_read": 0.50, "cache_write": 6.25, "reasoning": 5.00}
 _OPUS_LEGACY = {"input": 15.00, "output": 75.00, "cache_read": 1.50, "cache_write": 18.75, "reasoning": 15.00}
 _FABLE_5 = {"input": 10.00, "output": 50.00, "cache_read": 1.00, "cache_write": 12.50, "reasoning": 10.00}
-# Sonnet 5 is on an introductory rate that expires 2026-08-31. On 2026-09-01 the
-# standard tier takes over — swap _SONNET_5 for _SONNET_5_STANDARD below and update
-# test_sonnet_5_uses_intro_pricing_until_2026_09_01. Note a single static table
-# can't price pre- and post-cutoff sessions differently; whichever tier is active
-# is applied to all history.
+# Anthropic cancelled the planned 2026-09-01 rise to $3/$15. $2/$10 is the
+# permanent Sonnet 5 standard. The unused $3/$15 constant stays so it is not
+# reintroduced by accident.
 _SONNET_5 = {"input": 2.00, "output": 10.00, "cache_read": 0.20, "cache_write": 2.50, "reasoning": 2.00}
 _SONNET_5_STANDARD = {"input": 3.00, "output": 15.00, "cache_read": 0.30, "cache_write": 3.75, "reasoning": 3.00}
 _GPT52 = {"input": 1.75, "output": 14.00, "cache_read": 0.88, "cache_write": 1.75, "reasoning": 1.75}
-_GPT56_SOL = {"input": 5.00, "output": 30.00, "cache_read": 0.50, "cache_write": 6.25, "reasoning": 5.00}
-_GPT56_TERRA = {"input": 2.50, "output": 15.00, "cache_read": 0.25, "cache_write": 3.125, "reasoning": 2.50}
-_GPT56_LUNA = {"input": 1.00, "output": 6.00, "cache_read": 0.10, "cache_write": 1.25, "reasoning": 1.00}
+# GPT-5.6 Sol promotional API rate through at least 2026-11-21.
+_GPT56_SOL = {"input": 4.00, "output": 20.00, "cache_read": 0.40, "cache_write": 5.00, "reasoning": 4.00}
+_GPT56_TERRA = {"input": 2.00, "output": 12.00, "cache_read": 0.20, "cache_write": 2.50, "reasoning": 2.00}
+_GPT56_LUNA = {"input": 0.20, "output": 1.20, "cache_read": 0.02, "cache_write": 0.25, "reasoning": 0.20}
+_GPT56_CYBER = {"input": 12.50, "output": 75.00, "cache_read": 1.25, "cache_write": 15.625, "reasoning": 12.50}
+_GPT55 = {"input": 5.00, "output": 30.00, "cache_read": 0.50, "cache_write": 6.25, "reasoning": 5.00}
 _O_MINI = {"input": 1.10, "output": 4.40, "cache_read": 0.55, "cache_write": 1.10, "reasoning": 1.10}
 _DEEPSEEK_V3 = {"input": 0.27, "output": 1.10, "cache_read": 0.07, "cache_write": 0.27, "reasoning": 0.27}
+# DeepSeek V4 uses peak/off-peak. Off-peak (majority of hours) is the table rate; peak is 2x.
+_DEEPSEEK_V4_FLASH = {"input": 0.22, "output": 0.66, "cache_read": 0.007, "cache_write": 0.22, "reasoning": 0.22}
+_DEEPSEEK_V4_PRO = {"input": 0.66, "output": 1.98, "cache_read": 0.022, "cache_write": 0.66, "reasoning": 0.66}
+_GROK_46 = {"input": 2.00, "output": 6.00, "cache_read": 0.50, "cache_write": 2.00, "reasoning": 2.00}
+_GROK_45 = {"input": 2.00, "output": 6.00, "cache_read": 0.30, "cache_write": 2.00, "reasoning": 2.00}
+_GROK_43 = {"input": 1.25, "output": 2.50, "cache_read": 0.20, "cache_write": 1.25, "reasoning": 1.25}
 _GROK_FAST = {"input": 0.30, "output": 0.50, "cache_read": 0.075, "cache_write": 0.30, "reasoning": 0.30}
 _GEMINI_FLASH_OLD = {"input": 0.10, "output": 0.40, "cache_read": 0.025, "cache_write": 0.10, "reasoning": 0.10}
 _LLAMA = {"input": 0.10, "output": 0.10, "cache_read": 0.025, "cache_write": 0.10, "reasoning": 0.10}
@@ -62,7 +74,7 @@ MODEL_PRICING: dict[str, dict] = {
     # Deprecated models, but old sessions still log these strings.
     "claude-opus-4-1": _OPUS_LEGACY,
     "claude-opus-4-0": _OPUS_LEGACY,
-    # Anthropic — Sonnet 5 (intro promo: $2/$10 through Aug 31 2026; rises to $3/$15 Sep 1)
+    # Anthropic — Sonnet 5 ($2/$10 per MTok; intro rate made permanent)
     "claude-sonnet-5": _SONNET_5,
     # Anthropic — Sonnet 4.x ($3/$15 per MTok)
     "claude-sonnet-4-6": _SONNET_4X,
@@ -77,12 +89,15 @@ MODEL_PRICING: dict[str, dict] = {
     "claude-3-7-sonnet": _SONNET_4X,
     "claude-3.7-sonnet": _SONNET_4X,
     # OpenAI
+    "gpt-5.6-cyber": _GPT56_CYBER,
     "gpt-5.6-sol": _GPT56_SOL,
     "gpt-5.6-terra": _GPT56_TERRA,
     "gpt-5.6-luna": _GPT56_LUNA,
+    "gpt-5.6": _GPT56_SOL,  # unsuffixed alias routes to Sol
+    "gpt-5.5-pro": {"input": 30.00, "output": 180.00, "cache_read": 15.00, "cache_write": 30.00, "reasoning": 30.00},
+    "gpt-5.5": _GPT55,
     "gpt-5.4-pro": {"input": 30.00, "output": 180.00, "cache_read": 15.00, "cache_write": 30.00, "reasoning": 30.00},
     "gpt-5.4": {"input": 2.50, "output": 15.00, "cache_read": 1.25, "cache_write": 2.50, "reasoning": 2.50},
-    "gpt-5.5": _GPT52,
     "gpt-5.2-codex": _GPT52,
     "gpt-5.2": _GPT52,
     "gpt-4o": {"input": 2.50, "output": 10.00, "cache_read": 1.25, "cache_write": 2.50, "reasoning": 2.50},
@@ -93,30 +108,48 @@ MODEL_PRICING: dict[str, dict] = {
     "o3-mini": _O_MINI,
     "o1": {"input": 15.00, "output": 60.00, "cache_read": 7.50, "cache_write": 15.00, "reasoning": 15.00},
     # DeepSeek
+    "deepseek-v4-flash-vision": _DEEPSEEK_V4_FLASH,
+    "deepseek-v4-flash": _DEEPSEEK_V4_FLASH,
+    "deepseek-v4-pro": _DEEPSEEK_V4_PRO,
+    "deepseek-v4": _DEEPSEEK_V4_PRO,
     "deepseek-v3": _DEEPSEEK_V3,
     "deepseek-chat": _DEEPSEEK_V3,
     "deepseek-r1": {"input": 0.55, "output": 2.19, "cache_read": 0.14, "cache_write": 0.55, "reasoning": 0.55},
-    # xAI
-    "grok-4": {"input": 2.00, "output": 6.00, "cache_read": 0.50, "cache_write": 2.00, "reasoning": 2.00},
+    # xAI — longer keys first so grok-4.6 does not inherit grok-4 cache notes incorrectly
+    "grok-4.6": _GROK_46,
+    "grok-4.5": _GROK_45,
+    "grok-4.3": _GROK_43,
+    "grok-4": _GROK_46,
     "grok-3": {"input": 3.00, "output": 15.00, "cache_read": 0.75, "cache_write": 3.00, "reasoning": 3.00},
     "grok-code-fast": _GROK_FAST,
     "grok-3-mini-fast": _GROK_FAST,
-    # Google
-    "gemini-3.1-pro": {"input": 2.00, "output": 12.00, "cache_read": 0.50, "cache_write": 2.00, "reasoning": 2.00},
-    "gemini-3-flash": {"input": 0.50, "output": 3.00, "cache_read": 0.13, "cache_write": 0.50, "reasoning": 0.50},
+    # Google — official Gemini API standard (text) rates
+    "gemini-3.6-flash": {"input": 1.50, "output": 7.50, "cache_read": 0.15, "cache_write": 1.50, "reasoning": 1.50},
+    "gemini-3.5-flash-lite": {"input": 0.30, "output": 2.50, "cache_read": 0.03, "cache_write": 0.30, "reasoning": 0.30},
+    "gemini-3.5-flash": {"input": 1.50, "output": 9.00, "cache_read": 0.15, "cache_write": 1.50, "reasoning": 1.50},
+    "gemini-3.1-pro": {"input": 2.00, "output": 12.00, "cache_read": 0.20, "cache_write": 2.00, "reasoning": 2.00},
+    "gemini-3.1-flash-lite": {"input": 0.25, "output": 1.50, "cache_read": 0.025, "cache_write": 0.25, "reasoning": 0.25},
+    "gemini-3-flash": {"input": 0.50, "output": 3.00, "cache_read": 0.05, "cache_write": 0.50, "reasoning": 0.50},
     "gemini-2.5-pro": {"input": 1.25, "output": 10.00, "cache_read": 0.31, "cache_write": 4.50, "reasoning": 1.25},
-    "gemini-2.5-flash": {"input": 0.15, "output": 0.60, "cache_read": 0.04, "cache_write": 0.15, "reasoning": 0.15},
+    "gemini-2.5-flash-lite": {"input": 0.10, "output": 0.40, "cache_read": 0.01, "cache_write": 0.10, "reasoning": 0.10},
+    "gemini-2.5-flash": {"input": 0.30, "output": 2.50, "cache_read": 0.03, "cache_write": 0.30, "reasoning": 0.30},
     "gemini-2.0-flash": _GEMINI_FLASH_OLD,
     "gemini-flash": _GEMINI_FLASH_OLD,
     # Xiaomi
+    "mimo-v2.5-pro": {"input": 0.435, "output": 0.87, "cache_read": 0.0036, "cache_write": 0.435, "reasoning": 0.435},
+    "mimo-v2.5": {"input": 0.14, "output": 0.28, "cache_read": 0.0028, "cache_write": 0.14, "reasoning": 0.14},
     "mimo-v2-pro": {"input": 1.00, "output": 3.00, "cache_read": 0.20, "cache_write": 1.00, "reasoning": 1.00},
     # MiniMax
+    "minimax-m3": {"input": 0.30, "output": 1.20, "cache_read": 0.06, "cache_write": 0.30, "reasoning": 0.30},
     "minimax-m2.7": {"input": 0.20, "output": 1.20, "cache_read": 0.05, "cache_write": 0.20, "reasoning": 0.20},
     "minimax-m2.5": {"input": 0.12, "output": 0.99, "cache_read": 0.06, "cache_write": 0.12, "reasoning": 0.12},
     # Meta
     "llama-3.3-70b": _LLAMA,
     "llama-4": _LLAMA,
     # Qwen
+    "qwen3.8-max": {"input": 2.00, "output": 6.00, "cache_read": 0.25, "cache_write": 2.50, "reasoning": 2.00},
+    "qwen-3.8-max": {"input": 2.00, "output": 6.00, "cache_read": 0.25, "cache_write": 2.50, "reasoning": 2.00},
+    "qwen3.7-plus": {"input": 0.50, "output": 3.00, "cache_read": 0.05, "cache_write": 0.625, "reasoning": 0.50},
     "qwen3-coder": {"input": 0.15, "output": 0.80, "cache_read": 0.04, "cache_write": 0.15, "reasoning": 0.15},
     "qwen-3.5-plus": {"input": 0.26, "output": 1.56, "cache_read": 0.065, "cache_write": 0.26, "reasoning": 0.26},
     "qwen-3.5-flash": {"input": 0.065, "output": 0.26, "cache_read": 0.016, "cache_write": 0.065, "reasoning": 0.065},

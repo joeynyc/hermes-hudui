@@ -21,6 +21,8 @@ _DISPLAY_NAMES = {
     "zai": "Z.AI",
     "google": "Google",
     "xai": "xAI Grok",
+    "xai-oauth": "xAI Grok",
+    "modelscope": "ModelScope",
 }
 
 _PROVIDER_KEYS = {
@@ -31,6 +33,7 @@ _PROVIDER_KEYS = {
     "fireworks": ("FIREWORKS_API_KEY",),
     "google": ("GOOGLE_AI_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY"),
     "xai": ("XAI_API_KEY",),
+    "xai-oauth": ("XAI_API_KEY",),
     "zai": ("ZAI_API_KEY",),
     "minimax": ("MINIMAX_API_KEY",),
     "nous": ("NOUS_API_KEY",),
