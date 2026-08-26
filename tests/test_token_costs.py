@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from backend.api.token_costs import _SONNET_5_STANDARD, _get_pricing, get_token_costs
@@ -251,16 +251,23 @@ def test_current_anthropic_models_are_all_priced() -> None:
 
 def test_current_hermes_openai_models_are_all_priced() -> None:
     expected = {
-        "gpt-5.6-sol": (5.00, 30.00),
-        "gpt-5.6-terra": (2.50, 15.00),
-        "gpt-5.6-luna": (1.00, 6.00),
+        "gpt-5.6-sol": (4.00, 20.00),
+        "gpt-5.6-terra": (2.00, 12.00),
+        "gpt-5.6-luna": (0.20, 1.20),
+        "gpt-5.6-cyber": (12.50, 75.00),
+        "gpt-5.6": (4.00, 20.00),
+        "gpt-5.5": (5.00, 30.00),
     }
     for model_id, (input_price, output_price) in expected.items():
-        for candidate in (model_id, f"openai/{model_id}", f"{model_id}-pro"):
+        for candidate in (model_id, f"openai/{model_id}"):
             pricing, matched = _get_pricing(candidate)
             assert matched == model_id
             assert pricing["input"] == input_price
             assert pricing["output"] == output_price
+
+    pricing, matched = _get_pricing("gpt-5.6-sol-pro")
+    assert matched == "gpt-5.6-sol"
+    assert pricing["input"] == 4.00
 
 
 def test_model_pricing_lookup_is_case_insensitive_and_claude_dot_compatible() -> None:
@@ -290,21 +297,37 @@ def test_opus_5_uses_the_opus_5_25_tier() -> None:
     assert pricing["output"] == 25.00
 
 
-def test_sonnet_5_intro_pricing_expires_2026_09_01() -> None:
-    """Tripwire: fails once Sonnet 5's introductory rate lapses.
+def test_sonnet_5_keeps_the_2_10_standard_rate() -> None:
+    """Anthropic made Sonnet 5's $2/$10 intro rate the permanent standard."""
+    pricing, matched = _get_pricing("claude-sonnet-5")
+    assert matched == "claude-sonnet-5"
+    assert pricing["input"] == 2.00 and pricing["output"] == 10.00
+    assert _SONNET_5_STANDARD["input"] == 3.00
 
-    The $2/$10 rate is introductory through 2026-08-31; the standard tier is
-    $3/$15. A static table can't tell the two eras apart, so this test forces
-    the switch to be a deliberate edit rather than silent drift.
-    """
-    pricing, _ = _get_pricing("claude-sonnet-5")
-    if date.today() < date(2026, 9, 1):
-        assert pricing["input"] == 2.00 and pricing["output"] == 10.00
-    else:
-        assert pricing == _SONNET_5_STANDARD, (
-            "Sonnet 5 introductory pricing expired 2026-08-31 — point "
-            "MODEL_PRICING['claude-sonnet-5'] at _SONNET_5_STANDARD ($3/$15)."
-        )
+
+def test_current_xai_google_and_deepseek_models_are_priced() -> None:
+    expected = {
+        "grok-4.6": (2.00, 6.00),
+        "grok-4.5": (2.00, 6.00),
+        "grok-4.3": (1.25, 2.50),
+        "gemini-3.6-flash": (1.50, 7.50),
+        "gemini-3.5-flash": (1.50, 9.00),
+        "gemini-2.5-flash": (0.30, 2.50),
+        "deepseek-v4-flash": (0.22, 0.66),
+        "deepseek-v4-pro": (0.66, 1.98),
+        "minimax-m3": (0.30, 1.20),
+        "qwen3.8-max": (2.00, 6.00),
+    }
+    for model_id, (input_price, output_price) in expected.items():
+        pricing, matched = _get_pricing(model_id)
+        assert matched == model_id, f"{model_id} resolved to {matched}"
+        assert pricing["input"] == input_price
+        assert pricing["output"] == output_price
+
+    pricing, matched = _get_pricing("xai/grok-4.6")
+    assert matched == "grok-4.6"
+    pricing, matched = _get_pricing("deepseek-v4-flash-0731")
+    assert matched == "deepseek-v4-flash"
 
 
 def test_token_costs_handles_old_schema_without_actual_cost(

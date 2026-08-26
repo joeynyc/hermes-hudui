@@ -86,3 +86,18 @@ def test_providers_warn_when_configured_model_lacks_tool_metadata(tmp_path: Path
     state = collect_providers(str(tmp_path))
 
     assert "Configured model 'claude-text-only' does not advertise tool-call support in models.dev" in state.warnings
+
+
+def test_providers_recognize_xai_oauth_config_via_xai_api_key(tmp_path: Path, monkeypatch) -> None:
+    clear_cache()
+    monkeypatch.setenv("XAI_API_KEY", "xai-key")
+    _write_config(tmp_path, "xai-oauth", "grok-4.6")
+    (tmp_path / "models_dev_cache.json").write_text(
+        json.dumps({"xai": {"models": {"grok-4.6": {"tool_call": True}}}}),
+        encoding="utf-8",
+    )
+
+    state = collect_providers(str(tmp_path))
+
+    assert state.config_provider == "xai-oauth"
+    assert not any("No available key" in warning for warning in state.warnings)
