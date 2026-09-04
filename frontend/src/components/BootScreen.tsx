@@ -22,7 +22,7 @@ export default function BootScreen({ onComplete }: BootScreenProps) {
   const [skipped, setSkipped] = useState(false)
 
   const bootLines = useMemo(() => [
-    `☤ ${t('boot.version')} v0.11.0`,
+    `☤ ${t('boot.version')} v0.12.0`,
     '',
     `${t('boot.connecting')}`,
     'Reading ~/.hermes/state.db',
