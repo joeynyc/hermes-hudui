@@ -60,10 +60,12 @@ FastAPI Backend (Python)
 ### Backend (`backend/`)
 
 - **`main.py`** — FastAPI app + CLI entry point. Sets `HERMES_HOME`, starts Uvicorn.
-- **`collectors/`** — One module per data domain (memory, skills, sessions, cron, projects, patterns, sudo). Each reads `~/.hermes/` and returns dataclasses from `models.py`.
-- **`models.py`** — All dataclasses (`HUDState`, `MemoryState`, `SkillsState`, etc.). `@property` fields are included in serialization.
-- **`serialize.py`** — `to_dict()` recursively converts dataclasses to JSON-safe dicts.
-- **`routes/`** — FastAPI route handlers that call collectors and return serialized data.
+- **`collectors/`** — One module per data domain (memory, skills, sessions, cron, projects, patterns, sudo). Each reads `~/.hermes/` and returns dataclasses from `collectors/models.py`.
+- **`collectors/models.py`** — All dataclasses (`HUDState`, `MemoryState`, `SkillsState`, etc.). `@property` fields are included in serialization.
+- **`models/replay.py`** — Replay dataclasses (`ReplayRun`, `ReplayEvent`, `RunReceipt`, …), kept out of `collectors/models.py` because Replay owns its own schema.
+- **`services/`** — Replay pipeline: `replay_normalizer.py`, `replay_redactor.py`, `replay_exporter.py`, `replay_signer.py`, `replay_verifier.py`, `replay_publisher.py`.
+- **`api/serialize.py`** — `to_dict()` recursively converts dataclasses to JSON-safe dicts.
+- **`api/`** — FastAPI route handlers that call collectors and return serialized data. One module per tab/domain; each router is registered in `main.py`.
 - **`api/memory.py`** — CRUD endpoints for memory editing. Uses `fcntl.flock` + atomic writes (`tempfile.mkstemp` → `os.replace`) matching hermes-agent's `MemoryStore` locking pattern.
 - **`api/sessions.py`** — Session search (title + FTS). Filters `source != 'tool'` to exclude HUD-generated sessions.
 - **`api/chat.py`** — Chat session CRUD, SSE streaming endpoint, cancel endpoint.
@@ -84,13 +86,13 @@ FastAPI Backend (Python)
 
 ## Key Conventions
 
-**Adding a tab:** Create collector in `backend/collectors/`, dataclass in `models.py`, route in `backend/routes/`, panel component with `useApi`, register in `TopBar.tsx` TABS + `App.tsx` TabContent/GRID_CLASS.
+**Adding a tab:** Create collector in `backend/collectors/`, dataclass in `backend/collectors/models.py`, route module in `backend/api/` (register its router in `main.py`), panel component with `useApi`, register in `TopBar.tsx` TABS + `App.tsx` TabContent/GRID_CLASS.
 
 **Chat engine:** Stateless per-message subprocess. No backend message persistence — history lives in localStorage. On server restart, ChatPanel re-creates backend sessions and migrates localStorage keys to new IDs.
 
 **Memory editing:** Sync `def` endpoints (not `async`) so FastAPI auto-threads blocking I/O. File locking via `fcntl.flock` on `.lock` files. Atomic writes via `tempfile.mkstemp` + `os.replace`. Entries delimited by `\n§\n`.
 
-**Styling:** Tailwind for layout, CSS variables (`var(--hud-*)`) for theming. Funnel Sans font. Five themes: `ai`, `hermes`, `blade-runner`, `fsociety`, `anime`.
+**Styling:** Tailwind for layout, CSS variables (`var(--hud-*)`) for theming. Funnel Sans font. Five themes: `ai`, `hermes-official`, `blade-runner`, `fsociety`, `anime`.
 
 **TypeScript:** Use `any` for API response types — schema owned by backend.
 
