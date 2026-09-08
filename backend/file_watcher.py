@@ -133,14 +133,36 @@ class FileWatcherService:
         logger.info("File watcher stopped")
 
     def _get_watch_paths(self) -> list[Path]:
-        """Get paths to watch - main dir and key subdirectories."""
-        paths = [self.hermes_dir]
+        """Get paths to watch - only what we actually care about.
 
-        # Add key subdirectories if they exist
-        for subdir in ["skills", "profiles", "memories", "cron", "projects"]:
+        Previously this started with ``paths = [self.hermes_dir]``, pulling the
+        whole ~/.hermes tree into a recursive poll. On a real install that is
+        ~180k files (hermes-agent ~127k, migration ~52k, node ~4.7k), re-walked
+        on every poll tick, which pinned this process at ~30% CPU indefinitely.
+        ``_should_ignore`` only filters events *after* the walk, so it cannot
+        help; the range has to be cut at the source.
+
+        Known trade-off: files/dirs that do not exist yet (e.g. MEMORY.md before
+        it is first written) are not picked up until this service restarts.
+        """
+        paths: list[Path] = []
+
+        # Watch the specific root-level files we react to, not the whole root.
+        for fname in FILE_PATTERNS:
+            path = self.hermes_dir / fname
+            if path.exists():
+                paths.append(path)
+
+        # Watch the subdirectories we react to - these are small.
+        for subdir in DIR_PATTERNS:
             path = self.hermes_dir / subdir
             if path.exists():
                 paths.append(path)
+
+        # Fall back to the old behaviour if nothing matched, so a fresh install
+        # still gets change notifications.
+        if not paths:
+            paths = [self.hermes_dir]
 
         return paths
 
@@ -169,9 +191,14 @@ class FileWatcherService:
         try:
             watch_paths = [str(p) for p in self._get_watch_paths()]
 
-            # Use polling for reliability (scan every 2 seconds)
+            # Polling is used for reliability. Note watchfiles' poll_delay_ms
+            # defaults to 300ms, not the 2s this comment used to claim - set it
+            # explicitly so the interval matches the intent.
             for changes in watch(
-                *watch_paths, stop_event=self._stop_event, force_polling=True
+                *watch_paths,
+                stop_event=self._stop_event,
+                force_polling=True,
+                poll_delay_ms=2000,
             ):
                 if self._stop_event.is_set():
                     break
