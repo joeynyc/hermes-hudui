@@ -93,11 +93,11 @@ FastAPI Backend (Python)
 
 **Memory editing:** Sync `def` endpoints (not `async`) so FastAPI auto-threads blocking I/O. File locking via `fcntl.flock` on `.lock` files. Atomic writes via `tempfile.mkstemp` + `os.replace`. Entries delimited by `\n§\n`.
 
-**Styling:** Tailwind for layout, CSS variables (`var(--hud-*)`) for theming. Funnel Sans font. Four themes: `ai`, `blade-runner`, `fsociety`, `anime`.
+**Styling:** Tailwind for layout, CSS variables (`var(--hud-*)`) for theming. Funnel Sans font. Five themes: `ai`, `hermes-official`, `blade-runner`, `fsociety`, `anime`.
 
 **TypeScript:** Use `any` for API response types — schema owned by backend. `@typescript-eslint/no-explicit-any` is turned off in `frontend/eslint.config.js` for exactly this reason; don't re-enable it without typing the API surface first.
 
-**Linting:** `cd frontend && npm run lint` must exit clean (0 errors). Remaining `react-refresh/only-export-components` and `react-hooks/exhaustive-deps` findings are warnings by design. CI does not yet run lint — run it before committing frontend changes.
+**Linting:** `cd frontend && npm run lint` must exit clean (0 errors). Remaining `react-refresh/only-export-components` and `react-hooks/exhaustive-deps` findings are warnings by design. CI runs lint on every PR — run it before committing frontend changes.
 
 **Version strings:** Must stay in sync across `pyproject.toml`, `App.tsx` status bar, `BootScreen.tsx`, and `CHANGELOG.md`.
 

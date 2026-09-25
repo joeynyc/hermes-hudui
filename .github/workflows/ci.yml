@@ -68,7 +68,10 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      # Dependency bumps change Vite chunk hashes without touching source; the
+      # packaged bundle is regenerated at release time (scripts/build_frontend.sh).
       - name: Verify packaged frontend is current
+        if: github.actor != 'dependabot[bot]'
         run: diff -qr frontend/dist backend/static
 
   package:
