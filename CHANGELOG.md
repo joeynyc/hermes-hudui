@@ -4,6 +4,9 @@ All notable changes to hermes-hudui are documented here.
 
 ## [Unreleased]
 
+### Changed
+- **Agent compatibility pin** — Health now verifies against Hermes Agent **v0.21.6** and `state.db` schema **v31** (still accepting v16/v23/v26), so current agents no longer show a false "Agent schema version" warning.
+
 ---
 
 ## [0.12.0] — 2026-09-04

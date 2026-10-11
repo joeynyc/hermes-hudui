@@ -188,8 +188,23 @@ def test_health_accepts_agent_schema_26(tmp_path: Path, monkeypatch) -> None:
     assert "v26" in database["Agent schema version"].detail
 
 
+def test_health_accepts_agent_schema_31(tmp_path: Path, monkeypatch) -> None:
+    _make_state_db(tmp_path / "state.db", schema_version=31)
+
+    monkeypatch.setattr("backend.collectors.health._check_pid_file", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.collectors.health._check_systemd_service", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.collectors.health._check_process", lambda *args, **kwargs: None)
+    monkeypatch.setattr("backend.collectors.health._hermes_cli_info", lambda: ("ok", "/usr/bin/hermes", "hermes 0.21.6"))
+
+    state = collect_health(str(tmp_path))
+    database = _by_name(state.database)
+
+    assert database["Agent schema version"].status == "ok"
+    assert "v31" in database["Agent schema version"].detail
+
+
 def test_health_warns_for_unverified_future_schema(tmp_path: Path, monkeypatch) -> None:
-    _make_state_db(tmp_path / "state.db", schema_version=27)
+    _make_state_db(tmp_path / "state.db", schema_version=32)
 
     monkeypatch.setattr("backend.collectors.health._check_pid_file", lambda *args, **kwargs: None)
     monkeypatch.setattr("backend.collectors.health._check_systemd_service", lambda *args, **kwargs: None)
@@ -200,5 +215,5 @@ def test_health_warns_for_unverified_future_schema(tmp_path: Path, monkeypatch) 
     database = _by_name(state.database)
 
     assert database["Agent schema version"].status == "warning"
-    assert "schema v27" in database["Agent schema version"].detail
-    assert "v0.20.3" in database["Agent schema version"].suggested_fix
+    assert "schema v32" in database["Agent schema version"].detail
+    assert "v0.21.6" in database["Agent schema version"].suggested_fix

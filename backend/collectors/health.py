@@ -116,8 +116,8 @@ class HealthState:
 # version(s) known to be compatible. They drive the "Agent schema version" and
 # "Agent data layout" health diagnostics — drift surfaces as a warning instead
 # of a silently blank tab. Bump these when re-verifying against a newer agent.
-VERIFIED_AGENT_VERSION = "0.20.3"  # hermes-agent v0.20.3 (2026.8.16.2)
-TESTED_SCHEMA_VERSIONS = {16, 23, 26}
+VERIFIED_AGENT_VERSION = "0.21.6"  # hermes-agent v0.21.6+730.g97a9ae8 (2026.9.24)
+TESTED_SCHEMA_VERSIONS = {16, 23, 26, 31}
 
 # Pre-0.17 → current data-layout moves the HUD already follows. If an OLD path
 # is present while its replacement is absent, the agent data predates what this
