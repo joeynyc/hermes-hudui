@@ -4,8 +4,21 @@ All notable changes to hermes-hudui are documented here.
 
 ## [Unreleased]
 
+---
+
+## [0.12.1] — 2026-10-11
+
 ### Changed
 - **Agent compatibility pin** — Health now verifies against Hermes Agent **v0.21.6** and `state.db` schema **v31** (still accepting v16/v23/v26), so current agents no longer show a false "Agent schema version" warning.
+
+### Security
+- **Frontend dependency advisories** — `npm audit fix` moves `undici` past 7.29.0 (runtime, via `@ai-sdk/react`; DoS, response-splitting, and TLS-validation advisories) and patches `source-map-js` (build-time). Lockfile-only; the built bundle is unchanged.
+
+### Verification
+- `pytest` (191 passed)
+- `cd frontend && npm run lint` (0 errors) and `npm run build`
+- `npm audit` (0 vulnerabilities)
+- All GET routes exercised against a live Hermes Agent v0.21.6 data dir; chat SSE round-trip through `hermes chat`
 
 ---
 
