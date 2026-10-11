@@ -44,6 +44,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          # PR checkouts are a merge commit; depth 2 keeps HEAD^1 (the base) so
+          # the freshness gate below can see which files the PR changed.
+          fetch-depth: 2
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -68,10 +72,22 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      # Dependency bumps change Vite chunk hashes without touching source; the
-      # packaged bundle is regenerated at release time (scripts/build_frontend.sh).
+      # backend/static must match the build only when a PR changes frontend
+      # source or the packaged bundle itself. Dependency-only changes (Dependabot
+      # or manual) shift Vite chunk hashes without source changes; the bundle is
+      # regenerated at release time. Gating on changed paths rather than on
+      # github.actor keeps main green after a dependency PR is merged, and stops
+      # those merges from failing every later PR.
+      - name: Detect frontend source changes
+        id: frontend-changes
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --name-only HEAD^1 HEAD | grep -qE '^(frontend/(src|public)/|frontend/index\.html$|frontend/vite\.config\.|frontend/tsconfig|backend/static/)'; then
+            echo "source=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Verify packaged frontend is current
-        if: github.actor != 'dependabot[bot]'
+        if: steps.frontend-changes.outputs.source == 'true'
         run: diff -qr frontend/dist backend/static
 
   package:

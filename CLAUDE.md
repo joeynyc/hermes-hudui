@@ -99,6 +99,8 @@ FastAPI Backend (Python)
 
 **Linting:** `cd frontend && npm run lint` must exit clean (0 errors). Remaining `react-refresh/only-export-components` and `react-hooks/exhaustive-deps` findings are warnings by design. CI runs lint on every PR — run it before committing frontend changes.
 
+**Packaged frontend:** `backend/static/` is the committed build that ships in the wheel. CI requires it to match `npm run build` only on PRs that change frontend source (`frontend/src`, `public`, `index.html`, `vite.config.*`, `tsconfig*`) or `backend/static/` itself — rebuild and commit it in those PRs. Dependency-only PRs skip the check; the release step rebuilds the bundle.
+
 **Version strings:** Must stay in sync across `pyproject.toml`, `App.tsx` status bar, `BootScreen.tsx`, and `CHANGELOG.md`.
 
 **Token costs:** Hardcoded `MODEL_PRICING` in `backend/api/token_costs.py`. Unknown models fall back to `DEFAULT_PRICING` (`_FREE`) and are labelled `unpriced (<model>)` — they report **$0**, not an approximation. Adding a model means adding an entry; `test_current_anthropic_models_are_all_priced` guards against new models silently reading as free.
