@@ -22,6 +22,8 @@ _DISPLAY_NAMES = {
     "google": "Google",
     "xai": "xAI Grok",
     "xai-oauth": "xAI Grok",
+    "minimax": "MiniMax",
+    "minimax-cn": "MiniMax China",
     "modelscope": "ModelScope",
 }
 
@@ -36,6 +38,7 @@ _PROVIDER_KEYS = {
     "xai-oauth": ("XAI_API_KEY",),
     "zai": ("ZAI_API_KEY",),
     "minimax": ("MINIMAX_API_KEY",),
+    "minimax-cn": ("MINIMAX_CN_API_KEY", "MINIMAX_API_KEY"),
     "nous": ("NOUS_API_KEY",),
 }
 
