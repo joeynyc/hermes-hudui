@@ -139,8 +139,11 @@ MODEL_PRICING: dict[str, dict] = {
     "mimo-v2.5-pro": {"input": 0.435, "output": 0.87, "cache_read": 0.0036, "cache_write": 0.435, "reasoning": 0.435},
     "mimo-v2.5": {"input": 0.14, "output": 0.28, "cache_read": 0.0028, "cache_write": 0.14, "reasoning": 0.14},
     "mimo-v2-pro": {"input": 1.00, "output": 3.00, "cache_read": 0.20, "cache_write": 1.00, "reasoning": 1.00},
-    # MiniMax
-    "minimax-m3": {"input": 0.30, "output": 1.20, "cache_read": 0.06, "cache_write": 0.30, "reasoning": 0.30},
+    # MiniMax — standard text rates per 1M tokens. Cache-write pricing is
+    # unpublished for these models, so it remains null and is not estimated.
+    # Source: https://platform.minimax.io/docs/pricing/overview.md
+    "minimax-m3.1-flash": {"input": 0.15, "output": 0.60, "cache_read": 0.015, "cache_write": None, "reasoning": 0.15},
+    "minimax-m3": {"input": 0.30, "output": 1.20, "cache_read": 0.06, "cache_write": None, "reasoning": 0.30},
     "minimax-m2.7": {"input": 0.20, "output": 1.20, "cache_read": 0.05, "cache_write": 0.20, "reasoning": 0.20},
     "minimax-m2.5": {"input": 0.12, "output": 0.99, "cache_read": 0.06, "cache_write": 0.12, "reasoning": 0.12},
     # Meta
@@ -196,7 +199,7 @@ def _get_pricing(model: str | None) -> tuple[dict, str]:
 
 def _calc_cost(tokens: dict, pricing: dict) -> float:
     return sum(
-        (tokens.get(k, 0) / 1_000_000) * pricing.get(k, 0)
+        (tokens.get(k, 0) / 1_000_000) * (pricing.get(k) or 0)
         for k in ("input", "output", "cache_read", "cache_write", "reasoning")
     )
 
