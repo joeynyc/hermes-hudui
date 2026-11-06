@@ -38,8 +38,10 @@ PROVIDER_OPTIONS = [
 # recommendation, with M3 as the compatible second choice.  Media providers
 # and user-saved custom/legacy model values remain outside this catalog.
 # Sources:
-# https://platform.minimax.io/docs/api-reference/text-openai-api.md
-# https://platform.minimax.io/docs/api-reference/text-anthropic-api.md
+# https://platform.minimax.io/docs/guides/models-intro.md
+# https://platform.minimax.io/docs/pricing/overview.md
+# https://platform.minimax.io/docs/api-reference/text-chat-openai.md
+# https://platform.minimax.io/docs/api-reference/text-chat-anthropic.md
 _MINIMAX_MODELS = [
     {
         "id": "MiniMax-M3.1-Flash",
@@ -53,6 +55,10 @@ _MINIMAX_MODELS = [
         },
         "reasoning_effort": ["low", "medium", "high", "xhigh", "max"],
         "reasoning_effort_default": "max",
+        "reasoning_effort_parameters_by_api": {
+            "anthropic_messages": "output_config.effort",
+            "openai_chat_completions": "reasoning_effort",
+        },
         "service_tier_supported": False,
         "pricing_usd_per_million_tokens": {
             "input": 0.15,
@@ -73,12 +79,45 @@ _MINIMAX_MODELS = [
         },
         "reasoning_effort": [],
         "reasoning_effort_default": None,
+        "reasoning_effort_note": "Effort fields are ignored by MiniMax-M3.",
         "service_tier_supported": True,
         "pricing_usd_per_million_tokens": {
             "input": 0.30,
             "output": 1.20,
             "cache_read": 0.06,
             "cache_write": None,
+        },
+        "pricing_tiers": {
+            "selection_basis": "request_input_tokens",
+            "input_token_threshold": "512k",
+            "threshold_note": (
+                "Published threshold retained verbatim; the pricing page does not "
+                "specify its integer expansion."
+            ),
+            "default_service_tier": "standard",
+            "flat_price_baseline": "standard, input tokens <= 512k",
+            "standard": [
+                {
+                    "input_token_condition": "<=512k",
+                    "pricing_usd_per_million_tokens": {
+                        "input": 0.30,
+                        "output": 1.20,
+                        "cache_read": 0.06,
+                        "cache_write": None,
+                    },
+                },
+                {
+                    "input_token_condition": ">512k",
+                    "pricing_usd_per_million_tokens": {
+                        "input": 0.60,
+                        "output": 2.40,
+                        "cache_read": 0.12,
+                        "cache_write": None,
+                    },
+                },
+            ],
+            "priority_multiplier": 1.5,
+            "priority_multiplier_applies_to": ["input", "output", "cache_read"],
         },
     },
 ]

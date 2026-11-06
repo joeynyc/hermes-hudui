@@ -31,9 +31,35 @@ def test_minimax_presets_keep_flash_first_and_m3_second() -> None:
         assert all(model["input_modalities"] == ["text", "image", "video"] for model in preset["models"])
         assert preset["models"][0]["thinking"] == ["adaptive"]
         assert preset["models"][0]["reasoning_effort_default"] == "max"
+        assert preset["models"][0]["reasoning_effort_parameters_by_api"] == {
+            "anthropic_messages": "output_config.effort",
+            "openai_chat_completions": "reasoning_effort",
+        }
         assert preset["models"][0]["service_tier_supported"] is False
         assert preset["models"][1]["thinking_defaults_by_api"]["anthropic_messages"] == "disabled"
+        assert preset["models"][1]["reasoning_effort_note"] == "Effort fields are ignored by MiniMax-M3."
         assert preset["models"][1]["service_tier_supported"] is True
+        assert preset["models"][1]["pricing_tiers"]["standard"] == [
+            {
+                "input_token_condition": "<=512k",
+                "pricing_usd_per_million_tokens": {
+                    "input": 0.30,
+                    "output": 1.20,
+                    "cache_read": 0.06,
+                    "cache_write": None,
+                },
+            },
+            {
+                "input_token_condition": ">512k",
+                "pricing_usd_per_million_tokens": {
+                    "input": 0.60,
+                    "output": 2.40,
+                    "cache_read": 0.12,
+                    "cache_write": None,
+                },
+            },
+        ]
+        assert preset["models"][1]["pricing_tiers"]["priority_multiplier"] == 1.5
         assert preset["endpoints"] == [
             {
                 "region": region,
