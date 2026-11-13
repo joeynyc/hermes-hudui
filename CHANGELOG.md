@@ -6,6 +6,23 @@ All notable changes to hermes-hudui are documented here.
 
 ---
 
+## [0.12.2] — 2026-11-13
+
+### Security
+- **Frontend dependency advisories** — `undici` 7.30.1 (TLS certificate-validation bypass, cross-origin cache poisoning, and several DoS advisories) and `zod` 4.6.7 (GHSA-mrhx-c7xc-m3w5, memory exhaustion on oversized collections) (#83). `npm audit --audit-level=high` is clean again; 10 moderate advisories remain in the eslint/typescript-eslint toolchain (`minimatch`), build-time only.
+
+### Changed
+- **Frontend dependencies** — React/React DOM 19.3.1, Vite 8.3.7, `@vitejs/plugin-react` 6.3.0, Tailwind CSS 4.3.5, AI SDK (`ai` 7.0.166, `@ai-sdk/react` 4.0.170), ESLint 10.14.0, typescript-eslint 8.72.2 (#71, #84). `backend/static` is rebuilt so the packaged wheel ships these versions.
+- **CI** — the packaged-frontend freshness check now runs only on PRs that touch frontend source or `backend/static`, instead of keying on `github.actor` (#76). `github/codeql-action` 4.39.1 (#64, #80).
+
+### Verification
+- `pytest` (191 passed)
+- `cd frontend && npm run lint` (0 errors) and `npm run build`
+- `npm audit --audit-level=high` (passes)
+- `diff -qr frontend/dist backend/static` (in sync); packaged server serves the rebuilt bundle reporting v0.12.2
+
+---
+
 ## [0.12.1] — 2026-10-11
 
 ### Changed
