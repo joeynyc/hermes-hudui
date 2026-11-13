@@ -12,6 +12,8 @@ Same data, same soul, same dashboard that made the [TUI version](https://github.
 
 ![Plugin Hub](assets/plugin-hub.png)
 
+**Follow [@aijoey](https://x.com/aijoey) on X** for new releases, themes and what I'm building next with Hermes.
+
 ## Quick Start
 
 ```bash
