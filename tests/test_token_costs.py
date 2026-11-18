@@ -355,3 +355,106 @@ def test_token_costs_handles_old_schema_without_actual_cost(
     assert data["all_time"]["actual_cost_usd"] == 0
     assert data["all_time"]["billed_cost_usd"] == 0.21
     assert data["all_time"]["actual_coverage_pct"] == 0
+
+
+def test_token_costs_top_ten_uses_rounded_cost_and_stable_ties(
+    tmp_path: Path, monkeypatch
+) -> None:
+    hermes_dir = tmp_path / "hermes"
+    hermes_dir.mkdir()
+    db_path = hermes_dir / "state.db"
+    _make_state_db(db_path)
+    now = datetime.now().timestamp()
+
+    for i, actual_cost in enumerate((8, 7, 6, 5, 4, 3, 2, 1)):
+        _insert_session(
+            db_path,
+            id=f"high-{i}",
+            source=None if i == 0 else "cli",
+            title=f"High cost {i}",
+            started_at=now - 20 + i,
+            model="unknown-model",
+            actual_cost_usd=actual_cost,
+        )
+
+    tie_sessions = (
+        ("tie-low-raw", 0.501),
+        ("tie-estimated", None),
+        ("tie-high-raw", 0.504),
+        ("tie-third", 0.502),
+        ("tie-fourth", 0.503),
+    )
+    for i, (session_id, actual_cost) in enumerate(tie_sessions):
+        is_estimated = actual_cost is None
+        _insert_session(
+            db_path,
+            id=session_id,
+            source=None if is_estimated else "cli",
+            title=None if is_estimated else session_id,
+            started_at=now - 5 + i,
+            model="claude-sonnet-4-6" if is_estimated else "unknown-model",
+            input_tokens=100_000 if is_estimated else 0,
+            output_tokens=13_334 if is_estimated else 0,
+            actual_cost_usd=actual_cost,
+        )
+
+    monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
+    data = get_token_costs()
+
+    top_sessions = data["top_sessions"]
+    assert [session["id"] for session in top_sessions] == [
+        *(f"high-{i}" for i in range(8)),
+        "tie-low-raw",
+        "tie-estimated",
+    ]
+    assert len(top_sessions) == 10
+    assert top_sessions[0]["source"] == "unknown"
+    assert top_sessions[-1]["title"] == "tie-estimated"
+    assert top_sessions[-1]["source"] == "unknown"
+    assert top_sessions[-1]["estimated_cost_usd"] == 0.5
+    assert top_sessions[-1]["actual_cost_usd"] == 0.0
+    assert top_sessions[-1]["billed_cost_usd"] == 0.5
+    assert data["all_time"]["session_count"] == 13
+    assert data["all_time"]["actual_session_count"] == 12
+
+
+def test_token_costs_replaces_low_costs_and_preserves_cutoff_ties(
+    tmp_path: Path, monkeypatch
+) -> None:
+    hermes_dir = tmp_path / "hermes"
+    hermes_dir.mkdir()
+    db_path = hermes_dir / "state.db"
+    _make_state_db(db_path)
+
+    sessions = [(f"low-{i}", (i + 1) / 10) for i in range(4)]
+    sessions.extend((f"high-{i}", float(i + 2)) for i in range(7))
+    sessions.extend(
+        (
+            ("tie-first", 1.004),
+            ("tie-second", 1.001),
+            ("tie-third", 1.003),
+            ("tie-fourth", 1.002),
+            ("tie-fifth", 1.000),
+        )
+    )
+    now = datetime.now().timestamp()
+    for i, (session_id, actual_cost) in enumerate(sessions):
+        _insert_session(
+            db_path,
+            id=session_id,
+            source="cli",
+            title=session_id,
+            started_at=now + i,
+            model="unknown-model",
+            actual_cost_usd=actual_cost,
+        )
+
+    monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
+    data = get_token_costs()
+
+    assert [session["id"] for session in data["top_sessions"]] == [
+        *(f"high-{i}" for i in reversed(range(7))),
+        "tie-first",
+        "tie-second",
+        "tie-third",
+    ]
