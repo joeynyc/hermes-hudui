@@ -1,5 +1,6 @@
 """Token cost endpoint — calculates estimated USD costs per model."""
 
+import heapq
 import re
 import sqlite3
 from datetime import datetime, timedelta
@@ -365,13 +366,13 @@ def get_token_costs():
 
     # Daily trend
     daily: dict[str, dict] = {}
-    top_sessions: list[dict] = []
+    top_sessions: list[tuple[float, int, dict]] = []
     recent_start = datetime.now() - timedelta(days=7)
     previous_start = datetime.now() - timedelta(days=14)
     recent_7d_cost = 0.0
     previous_7d_cost = 0.0
 
-    for row in cur.fetchall():
+    for row_ordinal, row in enumerate(cur.fetchall()):
         model = row["model"] or "unknown"
         started_ts = row["started_at"]
         started = datetime.fromtimestamp(started_ts) if started_ts else None
@@ -447,29 +448,38 @@ def get_token_costs():
             elif started >= previous_start:
                 previous_7d_cost += cost
 
-        top_sessions.append({
-            "id": row["id"],
-            "source": row["source"] or "unknown",
-            "title": row["title"] or row["id"],
-            "date": day,
-            "model": model,
-            "matched_pricing": matched,
-            "message_count": row["message_count"] or 0,
-            "tool_call_count": row["tool_call_count"] or 0,
-            "input_tokens": tokens["input"],
-            "output_tokens": tokens["output"],
-            "cache_read_tokens": tokens["cache_read"],
-            "cache_write_tokens": tokens["cache_write"],
-            "reasoning_tokens": tokens["reasoning"],
-            "total_tokens": tokens["input"] + tokens["output"],
-            "estimated_cost_usd": _round_money(estimated),
-            "actual_cost_usd": _round_money(actual),
-            "billed_cost_usd": _round_money(cost),
-            "actual_delta_usd": _round_money(
-                (actual - estimated) if actual is not None else 0
-            ),
-            "cache_savings_usd": _round_money(savings),
-        })
+        billed_cost = _round_money(cost)
+        # Rank rounded cost and prefer earlier rows to preserve stable ties.
+        rank = (billed_cost, -row_ordinal)
+        if len(top_sessions) < 10 or rank > top_sessions[0][:2]:
+            session = {
+                "id": row["id"],
+                "source": row["source"] or "unknown",
+                "title": row["title"] or row["id"],
+                "date": day,
+                "model": model,
+                "matched_pricing": matched,
+                "message_count": row["message_count"] or 0,
+                "tool_call_count": row["tool_call_count"] or 0,
+                "input_tokens": tokens["input"],
+                "output_tokens": tokens["output"],
+                "cache_read_tokens": tokens["cache_read"],
+                "cache_write_tokens": tokens["cache_write"],
+                "reasoning_tokens": tokens["reasoning"],
+                "total_tokens": tokens["input"] + tokens["output"],
+                "estimated_cost_usd": _round_money(estimated),
+                "actual_cost_usd": _round_money(actual),
+                "billed_cost_usd": billed_cost,
+                "actual_delta_usd": _round_money(
+                    (actual - estimated) if actual is not None else 0
+                ),
+                "cache_savings_usd": _round_money(savings),
+            }
+            entry = (*rank, session)
+            if len(top_sessions) < 10:
+                heapq.heappush(top_sessions, entry)
+            else:
+                heapq.heapreplace(top_sessions, entry)
 
     conn.close()
 
@@ -515,7 +525,9 @@ def get_token_costs():
             "cache_savings_usd": _round_money(all_cache_savings),
         },
         "by_model": model_list,
-        "top_sessions": sorted(top_sessions, key=lambda s: -s["billed_cost_usd"])[:10],
+        "top_sessions": [
+            entry[2] for entry in sorted(top_sessions, reverse=True)
+        ],
         "trend_summary": {
             "recent_7d_cost_usd": _round_money(recent_7d_cost),
             "previous_7d_cost_usd": _round_money(previous_7d_cost),
