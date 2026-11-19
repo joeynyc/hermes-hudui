@@ -29,6 +29,8 @@ PROVIDER_OPTIONS = [
     "zai",
     "google",
     "xai",
+    "minimax",
+    "minimax-cn",
     "custom",
 ]
 
